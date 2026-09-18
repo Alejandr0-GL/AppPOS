@@ -1,1 +1,30 @@
+## .NET / ASP.NET Core
+[Bb]in/
+[Oo]bj/
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+## Visual Studio
+.vs/
+*.user
+*.lock.json
+
+## ASP.NET Core User Secrets & Local Settings
+appsettings.json
+appsettings.Development.json
+appsettings.Local.json
+*.local.json
+
+## OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
 .env
