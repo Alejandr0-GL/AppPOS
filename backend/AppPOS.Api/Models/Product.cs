@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace AppPOS.Api.Models;
 
@@ -31,13 +32,18 @@ public partial class Product
 
     public string? ImageUrl { get; set; }
 
-    public virtual Category Category { get; set; } = null!;
+    [JsonIgnore]
+    public virtual Category? Category { get; set; }
 
+    [JsonIgnore]
     public virtual ICollection<Inventory> Inventories { get; set; } = new List<Inventory>();
 
+    [JsonIgnore]
     public virtual ICollection<PurchaseDetail> PurchaseDetails { get; set; } = new List<PurchaseDetail>();
 
+    [JsonIgnore]
     public virtual ICollection<StockMovement> StockMovements { get; set; } = new List<StockMovement>();
 
-    public virtual Tax Tax { get; set; } = null!;
+    [JsonIgnore]
+    public virtual Tax? Tax { get; set; }
 }
