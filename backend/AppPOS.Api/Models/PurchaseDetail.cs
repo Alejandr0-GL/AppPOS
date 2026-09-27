@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace AppPOS.Api.Models;
 
@@ -19,9 +20,12 @@ public partial class PurchaseDetail
 
     public decimal Subtotal { get; set; }
 
-    public virtual Product Product { get; set; } = null!;
+    [JsonIgnore]
+    public virtual Product? Product { get; set; }
 
-    public virtual Purchase Purchase { get; set; } = null!;
+    [JsonIgnore]
+    public virtual Purchase? Purchase { get; set; }
 
-    public virtual Section Section { get; set; } = null!;
+    [JsonIgnore]
+    public virtual Section? Section { get; set; }
 }

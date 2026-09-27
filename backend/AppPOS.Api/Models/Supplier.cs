@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace AppPOS.Api.Models;
 
@@ -15,5 +16,6 @@ public partial class Supplier
 
     public string? Address { get; set; }
 
+    [JsonIgnore]
     public virtual ICollection<Purchase> Purchases { get; set; } = new List<Purchase>();
 }
