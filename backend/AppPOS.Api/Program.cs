@@ -1,4 +1,5 @@
 using AppPOS.Api.Models;
+using AppPOS.Api.Services;
 using Microsoft.EntityFrameworkCore;
 using Swashbuckle.AspNetCore;
 using System;
@@ -7,6 +8,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddDbContext<AppPosDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddScoped<IStockService, StockService>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
