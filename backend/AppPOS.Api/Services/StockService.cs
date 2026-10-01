@@ -115,5 +115,34 @@ namespace AppPOS.Api.Services
             _context.StockMovements.Add(movement);
             await _context.SaveChangesAsync();
         }
+
+        public async Task DeductStockForSaleAsync(int userId, int productId, int sectionId, int quantity, string reason)
+        {
+            var inventory = await _context.Inventories
+                .FirstOrDefaultAsync(i => i.ProductId == productId && i.SectionId == sectionId);
+
+            if (inventory == null || inventory.CurrentStock < quantity)
+            {
+                throw new InvalidOperationException($"Stock insuficiente para el producto ID {productId} en la sección {sectionId}. Stock disponible: {inventory?.CurrentStock ?? 0}");
+            }
+
+            // Descontar inventario
+            inventory.CurrentStock -= quantity;
+            inventory.UpdatedAt = DateTime.Now;
+
+            // Registrar trazabilidad de salida
+            var movement = new StockMovement
+            {
+                UserId = userId,
+                ProductId = productId,
+                SectionId = sectionId,
+                Quantity = -quantity, // Valor negativo representa salida
+                MovementType = "SALE",
+                Reason = reason,
+                CreatedAt = DateTime.Now
+            };
+
+            _context.StockMovements.Add(movement);
+        }
     }
 }
