@@ -115,6 +115,7 @@ public partial class AppPosDbContext : DbContext
 
             entity.Property(e => e.OrderId).HasColumnName("order_id");
             entity.Property(e => e.CustomerId).HasColumnName("customer_id");
+            entity.Property(e => e.SectionId).HasColumnName("section_id");
             entity.Property(e => e.Date)
                 .HasDefaultValueSql("(sysdatetime())")
                 .HasColumnName("date");
@@ -132,6 +133,12 @@ public partial class AppPosDbContext : DbContext
                 .HasForeignKey(d => d.CustomerId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_Orders_Customers");
+
+            entity.HasOne<Section>()
+                .WithMany()
+                .HasForeignKey(d => d.SectionId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Orders_Sections");
         });
 
         modelBuilder.Entity<OrderDetail>(entity =>

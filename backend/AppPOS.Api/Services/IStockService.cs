@@ -7,5 +7,7 @@
         Task AdjustStockAsync(int userId, int productId, int sectionId, int newQuantity, string reason);
 
         Task DeductStockForSaleAsync(int userId, int productId, int sectionId, int quantity, string reason);
+
+        Task RestoreStockForSaleAsync(int userId, int productId, int sectionId, int quantity, string reason);
     }
 }

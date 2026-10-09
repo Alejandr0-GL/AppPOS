@@ -22,14 +22,48 @@ namespace AppPOS.Api.Controllers
 
         // GET: api/Orders
         [HttpGet]
-        public async Task<IActionResult> GetOrders()
+        public async Task<IActionResult> GetOrders(
+            [FromQuery] DateTime? startDate,
+            [FromQuery] DateTime? endDate,
+            [FromQuery] int? customerId,
+            [FromQuery] string? status,
+            [FromQuery] int? sectionId)
         {
-            var orders = await _context.Orders
+            var query = _context.Orders.AsQueryable();
+
+            if (startDate.HasValue)
+            {
+                query = query.Where(o => o.Date >= startDate.Value.Date);
+            }
+
+            if (endDate.HasValue)
+            {
+                var exclusiveEndDate = endDate.Value.Date.AddDays(1);
+                query = query.Where(o => o.Date < exclusiveEndDate);
+            }
+
+            if (customerId.HasValue)
+            {
+                query = query.Where(o => o.CustomerId == customerId.Value);
+            }
+
+            if (!string.IsNullOrWhiteSpace(status))
+            {
+                query = query.Where(o => o.Status == status);
+            }
+
+            if (sectionId.HasValue)
+            {
+                query = query.Where(o => o.SectionId == sectionId.Value);
+            }
+
+            var orders = await query
                 .OrderByDescending(o => o.Date)
                 .Select(o => new
                 {
                     o.OrderId,
                     o.CustomerId,
+                    o.SectionId,
                     o.Date,
                     o.TotalAmount,
                     o.PaymentMethod,
@@ -41,10 +75,71 @@ namespace AppPOS.Api.Controllers
             return Ok(orders);
         }
 
+        // GET: api/Orders/5
+        [HttpGet("{id:int}")]
+        public async Task<IActionResult> GetOrder(int id)
+        {
+            var order = await _context.Orders
+                .Where(o => o.OrderId == id)
+                .Select(o => new
+                {
+                    o.OrderId,
+                    o.CustomerId,
+                    o.Date,
+                    o.TotalAmount,
+                    o.PaymentMethod,
+                    o.Status,
+                    Customer = o.Customer != null ? new
+                    {
+                        o.Customer.CustomerId,
+                        o.Customer.Name,
+                        o.Customer.DocumentNumber,
+                        o.Customer.Phone,
+                        o.Customer.Email
+                    } : null,
+                    Section = _context.Sections
+                        .Where(section => section.SectionId == o.SectionId)
+                        .Select(section => new { section.SectionId, section.Name })
+                        .FirstOrDefault(),
+                    Details = o.OrderDetails.Select(detail => new
+                    {
+                        detail.OrderDetailId,
+                        detail.ProductId,
+                        detail.Quantity,
+                        detail.UnitPrice,
+                        detail.TaxAmount,
+                        detail.Subtotal,
+                        Product = _context.Products
+                            .Where(product => product.ProductId == detail.ProductId)
+                            .Select(product => new
+                            {
+                                product.ProductId,
+                                product.Sku,
+                                product.Barcode,
+                                product.Name
+                            })
+                            .FirstOrDefault()
+                    })
+                })
+                .FirstOrDefaultAsync();
+
+            if (order == null)
+            {
+                return NotFound(new { message = "Orden no encontrada." });
+            }
+
+            return Ok(order);
+        }
+
         // POST: api/Orders
         [HttpPost]
         public async Task<IActionResult> CreateOrder([FromBody] CreateOrderDto dto)
         {
+            if (dto.SectionId <= 0)
+            {
+                return BadRequest(new { message = "La sección de la venta es obligatoria." });
+            }
+
             if (string.IsNullOrWhiteSpace(dto.PaymentMethod))
             {
                 return BadRequest(new { message = "El método de pago es obligatorio." });
@@ -53,6 +148,11 @@ namespace AppPOS.Api.Controllers
             if (dto.Details == null || !dto.Details.Any())
             {
                 return BadRequest(new { message = "La orden debe contener al menos un producto." });
+            }
+
+            if (dto.Details.Any(detail => detail.SectionId != dto.SectionId))
+            {
+                return BadRequest(new { message = "Todos los productos de la orden deben pertenecer a la unidad de negocio seleccionada." });
             }
 
             using var transaction = await _context.Database.BeginTransactionAsync();
@@ -105,6 +205,7 @@ namespace AppPOS.Api.Controllers
                 var order = new Order
                 {
                     CustomerId = dto.CustomerId,
+                    SectionId = dto.SectionId,
                     Date = DateTime.Now,
                     PaymentMethod = dto.PaymentMethod,
                     Status = isElectronic ? "PENDING_ELECTRONIC" : "COMPLETED", // Útil si luego envías el XML a un proveedor tecnológico
@@ -120,14 +221,11 @@ namespace AppPOS.Api.Controllers
                     detail.OrderId = order.OrderId;
                     _context.OrderDetails.Add(detail);
 
-                    // Obtener el sectionId que venía en la solicitud
-                    var itemDto = dto.Details.First(d => d.ProductId == detail.ProductId);
-
                     // Descontar stock
                     await _stockService.DeductStockForSaleAsync(
                         dto.UserId,
                         detail.ProductId,
-                        itemDto.SectionId,
+                        dto.SectionId,
                         detail.Quantity,
                         $"Venta ({dto.InvoiceType}) - Orden #{order.OrderId}"
                     );
@@ -153,6 +251,66 @@ namespace AppPOS.Api.Controllers
             {
                 await transaction.RollbackAsync();
                 return StatusCode(500, new { message = $"Error al procesar la venta: {ex.Message}" });
+            }
+        }
+
+        // PUT: api/Orders/5/cancel
+        [HttpPut("{id:int}/cancel")]
+        public async Task<IActionResult> CancelOrder(int id, [FromBody] CancelOrderDto dto)
+        {
+            using var transaction = await _context.Database.BeginTransactionAsync();
+
+            try
+            {
+                var order = await _context.Orders
+                    .Include(o => o.OrderDetails)
+                    .FirstOrDefaultAsync(o => o.OrderId == id);
+
+                if (order == null)
+                {
+                    return NotFound(new { message = "Orden no encontrada." });
+                }
+
+                if (order.Status == "CANCELLED")
+                {
+                    return Conflict(new { message = "La orden ya fue cancelada." });
+                }
+
+                if (order.Status != "COMPLETED")
+                {
+                    return BadRequest(new { message = "Solo se pueden cancelar órdenes completadas." });
+                }
+
+                foreach (var detail in order.OrderDetails)
+                {
+                    await _stockService.RestoreStockForSaleAsync(
+                        dto.UserId,
+                        detail.ProductId,
+                        order.SectionId,
+                        detail.Quantity,
+                        $"Venta cancelada - Orden #{order.OrderId}");
+                }
+
+                order.Status = "CANCELLED";
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return Ok(new
+                {
+                    message = "Venta cancelada y stock restaurado correctamente.",
+                    orderId = order.OrderId,
+                    status = order.Status
+                });
+            }
+            catch (InvalidOperationException ex)
+            {
+                await transaction.RollbackAsync();
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                return StatusCode(500, new { message = $"Error al cancelar la venta: {ex.Message}" });
             }
         }
     }

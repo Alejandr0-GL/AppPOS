@@ -1,7 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { map, Observable } from 'rxjs';
-import { Product, Customer, CreateOrderDto } from '../../../shared/models/pos.models';
+import { Product, Customer, CreateOrderDto, Order, OrderSummary } from '../../../shared/models/pos.models';
 
 export interface Section {
   sectionId: number;
@@ -15,6 +15,9 @@ export interface Section {
 export class PosService {
   private http = inject(HttpClient);
   private apiUrl = 'https://localhost:7122/api';
+
+  selectedSectionId = signal<number | null>(null);
+  cartItems = signal<Array<{ product: Product; quantity: number; sectionId: number }>>([]);
 
   // Obtener la lista de secciones
   getSections(): Observable<Section[]> {
@@ -33,8 +36,7 @@ export class PosService {
     return this.http.get<Customer[]>(`${this.apiUrl}/Customers?search=${encodeURIComponent(query)}`);
   }
 
-  // Signals para gestionar el estado de la venta activa en memoria
-  cartItems = signal<Array<{ product: Product; quantity: number; sectionId: number }>>([]);
+  // Cliente seleccionado para la venta activa
   selectedCustomer = signal<Customer | null>(null);
 
   // Buscar cliente por número de documento (POS-01)
@@ -50,5 +52,29 @@ export class PosService {
   // Enviar y procesar orden de venta (POS-02)
   processSale(order: CreateOrderDto): Observable<any> {
     return this.http.post(`${this.apiUrl}/Orders`, order);
+  }
+
+  getOrders(filters: { startDate?: string; endDate?: string; customerId?: number; status?: string; sectionId?: number } = {}): Observable<OrderSummary[]> {
+    const params = new URLSearchParams();
+
+    if (filters.startDate) params.set('startDate', filters.startDate);
+    if (filters.endDate) params.set('endDate', filters.endDate);
+    if (filters.customerId) params.set('customerId', filters.customerId.toString());
+    if (filters.status) params.set('status', filters.status);
+    if (filters.sectionId) params.set('sectionId', filters.sectionId.toString());
+
+    const query = params.toString();
+    return this.http.get<OrderSummary[]>(`${this.apiUrl}/Orders${query ? `?${query}` : ''}`);
+  }
+
+  getOrder(orderId: number): Observable<Order> {
+    return this.http.get<Order>(`${this.apiUrl}/Orders/${orderId}`);
+  }
+
+  cancelOrder(orderId: number, userId: number): Observable<{ orderId: number; status: string; message: string }> {
+    return this.http.put<{ orderId: number; status: string; message: string }>(
+      `${this.apiUrl}/Orders/${orderId}/cancel`,
+      { userId }
+    );
   }
 }
