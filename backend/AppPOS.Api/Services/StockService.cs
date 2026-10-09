@@ -144,5 +144,45 @@ namespace AppPOS.Api.Services
 
             _context.StockMovements.Add(movement);
         }
+
+        public async Task RestoreStockForSaleAsync(int userId, int productId, int sectionId, int quantity, string reason)
+        {
+            if (quantity <= 0)
+            {
+                throw new InvalidOperationException("La cantidad a reponer debe ser mayor que cero.");
+            }
+
+            var inventory = await _context.Inventories
+                .FirstOrDefaultAsync(i => i.ProductId == productId && i.SectionId == sectionId);
+
+            if (inventory == null)
+            {
+                inventory = new Inventory
+                {
+                    ProductId = productId,
+                    SectionId = sectionId,
+                    CurrentStock = quantity,
+                    MinStock = 5,
+                    UpdatedAt = DateTime.Now
+                };
+                _context.Inventories.Add(inventory);
+            }
+            else
+            {
+                inventory.CurrentStock += quantity;
+                inventory.UpdatedAt = DateTime.Now;
+            }
+
+            _context.StockMovements.Add(new StockMovement
+            {
+                UserId = userId,
+                ProductId = productId,
+                SectionId = sectionId,
+                Quantity = quantity,
+                MovementType = "SALE_CANCELLED",
+                Reason = reason,
+                CreatedAt = DateTime.Now
+            });
+        }
     }
 }

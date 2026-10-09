@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, effect, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject, debounceTime, distinctUntilChanged, switchMap, of } from 'rxjs';
@@ -14,30 +14,6 @@ import { Product, Customer, CreateOrderDto } from '../../shared/models/pos.model
       <!-- PANEL IZQUIERDO: Selección de Tienda, Buscador y Catálogo Exclusivo -->
       <div class="flex-1 flex flex-col gap-4">
         
-        <!-- Header de Conmutación de Tienda/Sección -->
-        <div class="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Unidad de Negocio:</span>
-            <div class="flex gap-2">
-              @for (section of sections(); track section.sectionId) {
-                <button 
-                  (click)="switchStore(section.sectionId)"
-                  [class.bg-indigo-600]="selectedSectionId() === section.sectionId"
-                  [class.text-white]="selectedSectionId() === section.sectionId"
-                  [class.bg-slate-100]="selectedSectionId() !== section.sectionId"
-                  [class.text-slate-600]="selectedSectionId() !== section.sectionId"
-                  class="px-4 py-2 rounded-xl font-bold text-xs shadow-sm transition-all flex items-center gap-2">
-                  <span class="w-2 h-2 rounded-full" [class.bg-emerald-400]="selectedSectionId() === section.sectionId" [class.bg-slate-300]="selectedSectionId() !== section.sectionId"></span>
-                  {{ section.name }}
-                </button>
-              }
-            </div>
-          </div>
-          <span class="text-xs font-semibold px-3 py-1 bg-amber-50 text-amber-700 rounded-lg border border-amber-200">
-            Caja Aislada
-          </span>
-        </div>
-
         <!-- Barra de Búsqueda de Productos -->
         <div class="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex gap-3">
           <input 
@@ -189,7 +165,7 @@ export class PosComponent implements OnInit {
   products = signal<Product[]>([]);
   filteredProducts = signal<Product[]>([]);
   
-  cart = signal<Array<{ product: Product; quantity: number; sectionId: number }>>([]);
+  cart = this.posService.cartItems;
   
   // Cliente & Búsqueda reactiva
   selectedCustomer = signal<Customer | null>(null);
@@ -199,6 +175,15 @@ export class PosComponent implements OnInit {
 
   searchQuery = '';
   invoiceType: 'POS' | 'ELECTRONIC' = 'POS';
+
+  private readonly sectionEffect = effect(() => {
+    const sectionId = this.posService.selectedSectionId();
+    if (!sectionId || sectionId === this.selectedSectionId()) return;
+
+    this.selectedSectionId.set(sectionId);
+    this.searchQuery = '';
+    this.loadProductsForSection(sectionId);
+  });
 
   cartTotal = computed(() => {
     return this.cart().reduce((acc, item) => acc + (item.product.salePrice * item.quantity), 0);
@@ -243,22 +228,13 @@ export class PosComponent implements OnInit {
       next: (data) => {
         this.sections.set(data);
         if (data.length > 0) {
-          this.switchStore(data[0].sectionId);
+          const sectionId = this.posService.selectedSectionId() ?? data[0].sectionId;
+          this.selectedSectionId.set(sectionId);
+          this.posService.selectedSectionId.set(sectionId);
+          this.loadProductsForSection(sectionId);
         }
       }
     });
-  }
-
-  switchStore(sectionId: number) {
-    if (this.cart().length > 0) {
-      const confirmSwitch = confirm('Al cambiar de tienda se vaciará el carrito actual. ¿Deseas continuar?');
-      if (!confirmSwitch) return;
-    }
-
-    this.selectedSectionId.set(sectionId);
-    this.cart.set([]);
-    this.searchQuery = '';
-    this.loadProductsForSection(sectionId);
   }
 
   loadProductsForSection(sectionId: number) {
@@ -312,6 +288,7 @@ export class PosComponent implements OnInit {
     const orderDto: CreateOrderDto = {
       userId: 1,
       customerId: customer.customerId,
+      sectionId: this.selectedSectionId(),
       paymentMethod: 'CASH',
       invoiceType: this.invoiceType,
       details: this.cart().map(item => ({
