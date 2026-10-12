@@ -8,7 +8,7 @@ export interface Product {
   purchasePrice: number;
   taxId: number;
   categoryId: number;
-  category?: { categoryId: number; name: string };
+  category?: { categoryId: number; name: string } | null;
 }
 
 export interface Customer {
@@ -85,4 +85,11 @@ export interface StockMovement {
   product?: Pick<Product, 'productId' | 'name' | 'sku'> | null;
   section?: { sectionId: number; name: string } | null;
   user?: { userId: number; username: string } | null;
+}
+
+export interface ProductCatalogItem extends Product {
+  isActive: boolean;
+  category?: { categoryId: number; name: string } | null;
+  tax?: { taxId: number; name: string; percentage: number } | null;
+  sections: Array<{ inventoryId: number; sectionId: number; name: string; currentStock: number; minStock: number }>;
 }

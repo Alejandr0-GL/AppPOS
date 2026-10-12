@@ -52,6 +52,7 @@ public partial class AppPosDbContext : DbContext
             entity.HasKey(e => e.CategoryId).HasName("PK__Categori__D54EE9B42B583CB0");
 
             entity.Property(e => e.CategoryId).HasColumnName("category_id");
+            entity.Property(e => e.SectionId).HasColumnName("section_id");
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("(sysdatetime())")
                 .HasColumnName("created_at");
@@ -64,6 +65,16 @@ public partial class AppPosDbContext : DbContext
             entity.Property(e => e.Name)
                 .HasMaxLength(100)
                 .HasColumnName("name");
+
+            entity.HasIndex(e => new { e.SectionId, e.Name })
+                .IsUnique()
+                .HasDatabaseName("UX_Categories_Section_Name");
+
+            entity.HasOne<Section>()
+                .WithMany()
+                .HasForeignKey(e => e.SectionId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Categories_Sections");
         });
 
         modelBuilder.Entity<Customer>(entity =>
@@ -220,6 +231,15 @@ public partial class AppPosDbContext : DbContext
                 .HasColumnName("sku");
             entity.Property(e => e.TaxId).HasColumnName("tax_id");
             entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
+
+            entity.HasIndex(e => e.Sku)
+                .IsUnique()
+                .HasDatabaseName("UX_Products_Sku");
+
+            entity.HasIndex(e => e.Barcode)
+                .IsUnique()
+                .HasFilter("[barcode] IS NOT NULL AND [barcode] <> ''")
+                .HasDatabaseName("UX_Products_Barcode");
 
             entity.HasOne(d => d.Category).WithMany(p => p.Products)
                 .HasForeignKey(d => d.CategoryId)
