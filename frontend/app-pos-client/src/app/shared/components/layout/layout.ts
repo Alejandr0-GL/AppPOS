@@ -48,6 +48,14 @@ import { PosService, Section } from '../../../features/pos/services/pos.service'
             </svg>
             Productos
           </a>
+
+          <a routerLink="/customers" routerLinkActive="bg-indigo-600 text-white"
+             class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all hover:bg-slate-800 hover:text-white font-medium">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2m8-8a4 4 0 100-8 4 4 0 000 8zm6-3a4 4 0 100-8m0 8a4 4 0 014 4v2"/>
+            </svg>
+            Clientes
+          </a>
         </nav>
 
         <div class="p-4 border-t border-slate-800 text-xs text-slate-500 text-center">

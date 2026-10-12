@@ -4,6 +4,18 @@ import { FormsModule } from '@angular/forms';
 import { Subject, debounceTime, distinctUntilChanged, switchMap, of } from 'rxjs';
 import { PosService, Section } from './services/pos.service';
 import { Product, Customer, CreateOrderDto } from '../../shared/models/pos.models';
+import { CustomersService } from '../customers/services/customers.service';
+
+interface QuickCustomerForm {
+  name: string;
+  documentNumber: string;
+  documentType: 'CC' | 'NIT' | 'CE' | 'PASSPORT';
+  address: string;
+  city: string;
+  department: string;
+  phone: string;
+  email: string;
+}
 
 @Component({
   selector: 'app-pos',
@@ -57,13 +69,7 @@ import { Product, Customer, CreateOrderDto } from '../../shared/models/pos.model
           
           @if (!selectedCustomer()) {
             <div class="relative">
-              <input 
-                type="text" 
-                [(ngModel)]="customerSearchQuery"
-                (input)="onCustomerSearchInput()"
-                placeholder="Escribe Cédula o Nombre..." 
-                class="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-sm outline-none focus:border-indigo-500"
-              />
+              <div class="flex gap-2"><input type="text" [(ngModel)]="customerSearchQuery" (input)="onCustomerSearchInput()" placeholder="Escribe Cédula o Nombre..." class="min-w-0 flex-1 px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-sm outline-none focus:border-indigo-500" /><button type="button" (click)="openQuickCustomer()" class="w-9 rounded-lg bg-slate-900 text-lg font-bold text-white" aria-label="Crear cliente">+</button></div>
               
               <!-- Desplegable dinámico de sugerencias -->
               @if (customerSearchResults().length > 0) {
@@ -154,11 +160,14 @@ import { Product, Customer, CreateOrderDto } from '../../shared/models/pos.model
           </button>
         </div>
       </div>
+
+      @if (customerModalOpen()) {<div class="fixed inset-0 z-40 bg-slate-950/50" (click)="closeQuickCustomer()"></div><section class="fixed inset-4 z-50 m-auto max-h-[calc(100vh-2rem)] max-w-2xl overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl"><div class="flex justify-between border-b pb-4"><h3 class="text-xl font-black">Nuevo cliente</h3><button (click)="closeQuickCustomer()" class="text-2xl text-slate-400">&times;</button></div><div class="grid gap-3 py-5 md:grid-cols-2"><label class="text-xs font-bold uppercase">Nombre *<input [(ngModel)]="quickCustomer.name" class="mt-1 w-full rounded border px-3 py-2 text-sm" /></label><label class="text-xs font-bold uppercase">Tipo documento *<select [(ngModel)]="quickCustomer.documentType" (ngModelChange)="onQuickDocumentTypeChange()" class="mt-1 w-full rounded border bg-white px-3 py-2 text-sm"><option value="CC">Cédula de Ciudadanía</option><option value="NIT">NIT</option><option value="CE">Cédula de Extranjería</option><option value="PASSPORT">Pasaporte</option></select></label><label class="text-xs font-bold uppercase">Número documento *<input [(ngModel)]="quickCustomer.documentNumber" class="mt-1 w-full rounded border px-3 py-2 text-sm" /></label><label class="text-xs font-bold uppercase">Teléfono<input [(ngModel)]="quickCustomer.phone" class="mt-1 w-full rounded border px-3 py-2 text-sm" /></label><label class="text-xs font-bold uppercase">Dirección<input [(ngModel)]="quickCustomer.address" class="mt-1 w-full rounded border px-3 py-2 text-sm" /></label><label class="text-xs font-bold uppercase">Ciudad<input [(ngModel)]="quickCustomer.city" class="mt-1 w-full rounded border px-3 py-2 text-sm" /></label><label class="text-xs font-bold uppercase">Departamento<input [(ngModel)]="quickCustomer.department" class="mt-1 w-full rounded border px-3 py-2 text-sm" /></label><label class="text-xs font-bold uppercase">Correo<input [(ngModel)]="quickCustomer.email" type="email" class="mt-1 w-full rounded border px-3 py-2 text-sm" /></label></div><div class="flex justify-end gap-2 border-t pt-4"><button (click)="closeQuickCustomer()" class="rounded border px-4 py-2 text-sm font-bold">Cancelar</button><button (click)="saveQuickCustomer()" class="rounded bg-indigo-600 px-5 py-2 text-sm font-bold text-white">Guardar cliente</button></div></section>}
     </div>
   `
 })
 export class PosComponent implements OnInit {
   private posService = inject(PosService);
+  private customersService = inject(CustomersService);
 
   sections = signal<Section[]>([]);
   selectedSectionId = signal<number>(1);
@@ -172,6 +181,8 @@ export class PosComponent implements OnInit {
   customerSearchQuery = '';
   customerSearchResults = signal<Customer[]>([]);
   private customerSearchSubject = new Subject<string>();
+  customerModalOpen = signal(false);
+  quickCustomer: QuickCustomerForm = this.emptyQuickCustomer();
 
   searchQuery = '';
   invoiceType: 'POS' | 'ELECTRONIC' = 'POS';
@@ -221,6 +232,55 @@ export class PosComponent implements OnInit {
 
   removeCustomer() {
     this.selectedCustomer.set(null);
+  }
+
+  openQuickCustomer() {
+    this.quickCustomer = this.emptyQuickCustomer();
+    this.customerModalOpen.set(true);
+  }
+
+  closeQuickCustomer() {
+    this.customerModalOpen.set(false);
+  }
+
+  onQuickDocumentTypeChange() {
+    if (this.quickCustomer.documentType === 'CC') {
+      this.quickCustomer.city = this.quickCustomer.city || 'Medellín';
+      this.quickCustomer.department = this.quickCustomer.department || 'Antioquia';
+    }
+  }
+
+  saveQuickCustomer() {
+    this.onQuickDocumentTypeChange();
+    if (!this.quickCustomer.name.trim() || !this.quickCustomer.documentNumber.trim()) {
+      alert('Nombre y documento son obligatorios.');
+      return;
+    }
+    if (this.quickCustomer.documentType === 'NIT' && (!this.quickCustomer.address.trim() || !this.quickCustomer.city.trim())) {
+      alert('Dirección y ciudad son obligatorias para NIT.');
+      return;
+    }
+
+    this.customersService.createCustomer({
+      name: this.quickCustomer.name.trim(),
+      documentNumber: this.quickCustomer.documentNumber.trim(),
+      documentType: this.quickCustomer.documentType,
+      address: this.quickCustomer.address.trim() || undefined,
+      city: this.quickCustomer.city.trim() || 'Medellín',
+      department: this.quickCustomer.department.trim() || 'Antioquia',
+      phone: this.quickCustomer.phone.trim() || undefined,
+      email: this.quickCustomer.email.trim() || undefined
+    }).subscribe({
+      next: customer => {
+        this.selectedCustomer.set(customer);
+        this.closeQuickCustomer();
+      },
+      error: error => alert(error.error?.message || 'No fue posible crear el cliente.')
+    });
+  }
+
+  private emptyQuickCustomer(): QuickCustomerForm {
+    return { name: '', documentNumber: '', documentType: 'CC', address: '', city: 'Medellín', department: 'Antioquia', phone: '', email: '' };
   }
 
   loadSections() {
