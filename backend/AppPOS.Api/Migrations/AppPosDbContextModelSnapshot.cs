@@ -54,8 +54,16 @@ namespace AppPOS.Api.Migrations
                         .HasColumnType("nvarchar(100)")
                         .HasColumnName("name");
 
+                    b.Property<int>("SectionId")
+                        .HasColumnType("int")
+                        .HasColumnName("section_id");
+
                     b.HasKey("CategoryId")
                         .HasName("PK__Categori__D54EE9B42B583CB0");
+
+                    b.HasIndex("SectionId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Categories_Section_Name");
 
                     b.ToTable("Categories");
                 });
@@ -318,7 +326,16 @@ namespace AppPOS.Api.Migrations
                     b.HasKey("ProductId")
                         .HasName("PK__Products__47027DF5F0BBB5BC");
 
+                    b.HasIndex("Barcode")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Products_Barcode")
+                        .HasFilter("[barcode] IS NOT NULL AND [barcode] <> ''");
+
                     b.HasIndex("CategoryId");
+
+                    b.HasIndex("Sku")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Products_Sku");
 
                     b.HasIndex("TaxId");
 
@@ -629,6 +646,15 @@ namespace AppPOS.Api.Migrations
                         .HasName("PK__Users__B9BE370F4DEAD774");
 
                     b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("AppPOS.Api.Models.Category", b =>
+                {
+                    b.HasOne("AppPOS.Api.Models.Section", null)
+                        .WithMany()
+                        .HasForeignKey("SectionId")
+                        .IsRequired()
+                        .HasConstraintName("FK_Categories_Sections");
                 });
 
             modelBuilder.Entity("AppPOS.Api.Models.Inventory", b =>

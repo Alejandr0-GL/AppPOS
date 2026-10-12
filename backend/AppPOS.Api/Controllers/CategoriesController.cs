@@ -19,9 +19,15 @@ namespace AppPOS.Api.Controllers
 
         // GET: api/Categories
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Category>>> GetCategories()
+        public async Task<ActionResult<IEnumerable<Category>>> GetCategories([FromQuery] int sectionId, [FromQuery] bool includeInactive = false)
         {
-            return await _context.Categories.ToListAsync();
+            if (sectionId <= 0) return BadRequest(new { message = "sectionId es obligatorio para consultar categorías." });
+            var query = _context.Categories
+                .Where(category => category.SectionId == sectionId);
+            if (!includeInactive) query = query.Where(category => category.IsActive);
+            return await query
+                .OrderBy(category => category.Name)
+                .ToListAsync();
         }
 
         // GET: api/Categories/5
@@ -42,8 +48,16 @@ namespace AppPOS.Api.Controllers
         [HttpPost]
         public async Task<ActionResult<Category>> PostCategory(Category category)
         {
+            if (category.SectionId <= 0) return BadRequest(new { message = "La sección de la categoría es obligatoria." });
+            if (string.IsNullOrWhiteSpace(category.Name)) return BadRequest(new { message = "El nombre de la categoría es obligatorio." });
+            if (await _context.Categories.AnyAsync(item => item.SectionId == category.SectionId && item.Name == category.Name))
+                return Conflict(new { message = "Ya existe una categoría con ese nombre en la unidad seleccionada." });
+
+            category.Name = category.Name.Trim();
+            category.IsActive = true;
             _context.Categories.Add(category);
-            await _context.SaveChangesAsync();
+            try { await _context.SaveChangesAsync(); }
+            catch (DbUpdateException) { return Conflict(new { message = "No se pudo crear la categoría porque ya existe en la unidad seleccionada." }); }
 
             return CreatedAtAction(nameof(GetCategory), new { id = category.CategoryId }, category);
         }
@@ -57,7 +71,16 @@ namespace AppPOS.Api.Controllers
                 return BadRequest();
             }
 
-            _context.Entry(category).State = EntityState.Modified;
+            var existing = await _context.Categories.FindAsync(id);
+            if (existing == null) return NotFound();
+            if (category.SectionId != existing.SectionId) return BadRequest(new { message = "No se puede cambiar la unidad de una categoría." });
+            if (string.IsNullOrWhiteSpace(category.Name)) return BadRequest(new { message = "El nombre de la categoría es obligatorio." });
+            if (await _context.Categories.AnyAsync(item => item.CategoryId != id && item.SectionId == existing.SectionId && item.Name == category.Name))
+                return Conflict(new { message = "Ya existe una categoría con ese nombre en la unidad seleccionada." });
+
+            existing.Name = category.Name.Trim();
+            existing.Description = category.Description;
+            existing.IsActive = category.IsActive;
 
             try
             {
@@ -85,7 +108,7 @@ namespace AppPOS.Api.Controllers
                 return NotFound();
             }
 
-            _context.Categories.Remove(category);
+            category.IsActive = false;
             await _context.SaveChangesAsync();
 
             return NoContent();
