@@ -82,6 +82,18 @@ public partial class AppPosDbContext : DbContext
             entity.HasKey(e => e.CustomerId).HasName("PK__Customer__CD65CB8592ACF920");
 
             entity.Property(e => e.CustomerId).HasColumnName("customer_id");
+            entity.Property(e => e.DocumentType)
+                .HasMaxLength(20)
+                .HasColumnName("document_type");
+            entity.Property(e => e.Address)
+                .HasMaxLength(200)
+                .HasColumnName("address");
+            entity.Property(e => e.City)
+                .HasMaxLength(100)
+                .HasColumnName("city");
+            entity.Property(e => e.Department)
+                .HasMaxLength(100)
+                .HasColumnName("department");
             entity.Property(e => e.DocumentNumber)
                 .HasMaxLength(50)
                 .HasColumnName("document_number");

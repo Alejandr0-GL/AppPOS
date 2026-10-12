@@ -15,6 +15,10 @@ export interface Customer {
   customerId: number;
   name: string;
   documentNumber: string;
+  documentType: 'CC' | 'NIT' | 'CE' | 'PASSPORT' | string;
+  address?: string;
+  city: string;
+  department: string;
   phone?: string;
   email?: string;
 }

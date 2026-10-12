@@ -77,7 +77,16 @@ namespace AppPOS.Api.Controllers
                     o.InvoiceType,
                     o.CancelledByUserId,
                     o.Status,
-                    Customer = o.Customer != null ? new { o.Customer.CustomerId, o.Customer.Name, o.Customer.DocumentNumber } : null,
+                            Customer = o.Customer != null ? new
+                            {
+                                o.Customer.CustomerId,
+                                o.Customer.Name,
+                                o.Customer.DocumentNumber,
+                                o.Customer.DocumentType,
+                                o.Customer.Address,
+                                o.Customer.City,
+                                o.Customer.Department
+                            } : null,
                     User = _context.Users
                         .Where(user => user.UserId == o.UserId)
                         .Select(user => new { user.UserId, user.Username })
@@ -115,6 +124,10 @@ namespace AppPOS.Api.Controllers
                         o.Customer.CustomerId,
                         o.Customer.Name,
                         o.Customer.DocumentNumber,
+                        o.Customer.DocumentType,
+                        o.Customer.Address,
+                        o.Customer.City,
+                        o.Customer.Department,
                         o.Customer.Phone,
                         o.Customer.Email
                     } : null,

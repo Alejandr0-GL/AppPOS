@@ -4,6 +4,7 @@ import { PosComponent } from './features/pos/pos';
 import { SalesHistoryComponent } from './features/pos/sales-history/sales-history';
 import { InventoryComponent } from './features/inventory/inventory';
 import { ProductsComponent } from './features/products/products';
+import { CustomersComponent } from './features/customers/customers';
 
 export const routes: Routes = [
     {
@@ -14,7 +15,8 @@ export const routes: Routes = [
       { path: 'pos', component: PosComponent },
       { path: 'sales-history', component: SalesHistoryComponent },
       { path: 'inventory', component: InventoryComponent }
-      ,{ path: 'products', component: ProductsComponent }
+      ,{ path: 'products', component: ProductsComponent },
+      { path: 'customers', component: CustomersComponent }
     ] 
   }
 ];

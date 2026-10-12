@@ -12,6 +12,14 @@ public partial class Customer
 
     public string DocumentNumber { get; set; } = null!;
 
+    public string DocumentType { get; set; } = "CC";
+
+    public string? Address { get; set; }
+
+    public string City { get; set; } = "Medellín";
+
+    public string Department { get; set; } = "Antioquia";
+
     public string? Phone { get; set; }
 
     public string? Email { get; set; }
