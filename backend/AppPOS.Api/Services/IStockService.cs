@@ -9,5 +9,7 @@
         Task DeductStockForSaleAsync(int userId, int productId, int sectionId, int quantity, string reason);
 
         Task RestoreStockForSaleAsync(int userId, int productId, int sectionId, int quantity, string reason);
+
+        Task UpdateInventoryAsync(int userId, int inventoryId, int sectionId, int currentStock, int minStock, string reason);
     }
 }

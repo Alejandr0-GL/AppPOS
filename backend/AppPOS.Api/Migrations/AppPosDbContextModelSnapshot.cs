@@ -131,9 +131,11 @@ namespace AppPOS.Api.Migrations
                     b.HasKey("InventoryId")
                         .HasName("PK__Inventor__B59ACC49F399EAE7");
 
-                    b.HasIndex("ProductId");
-
                     b.HasIndex("SectionId");
+
+                    b.HasIndex("ProductId", "SectionId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Inventories_Product_Section");
 
                     b.ToTable("Inventories");
                 });
@@ -147,6 +149,10 @@ namespace AppPOS.Api.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("OrderId"));
 
+                    b.Property<int?>("CancelledByUserId")
+                        .HasColumnType("int")
+                        .HasColumnName("cancelled_by_user_id");
+
                     b.Property<int>("CustomerId")
                         .HasColumnType("int")
                         .HasColumnName("customer_id");
@@ -156,6 +162,12 @@ namespace AppPOS.Api.Migrations
                         .HasColumnType("datetime2")
                         .HasColumnName("date")
                         .HasDefaultValueSql("(sysdatetime())");
+
+                    b.Property<string>("InvoiceType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("invoice_type");
 
                     b.Property<string>("PaymentMethod")
                         .HasMaxLength(50)
@@ -176,12 +188,20 @@ namespace AppPOS.Api.Migrations
                         .HasColumnType("decimal(18, 2)")
                         .HasColumnName("total_amount");
 
+                    b.Property<int>("UserId")
+                        .HasColumnType("int")
+                        .HasColumnName("user_id");
+
                     b.HasKey("OrderId")
                         .HasName("PK__Orders__4659622967A8440B");
+
+                    b.HasIndex("CancelledByUserId");
 
                     b.HasIndex("CustomerId");
 
                     b.HasIndex("SectionId");
+
+                    b.HasIndex("UserId");
 
                     b.ToTable("Orders");
                 });
@@ -632,6 +652,11 @@ namespace AppPOS.Api.Migrations
 
             modelBuilder.Entity("AppPOS.Api.Models.Order", b =>
                 {
+                    b.HasOne("AppPOS.Api.Models.User", null)
+                        .WithMany()
+                        .HasForeignKey("CancelledByUserId")
+                        .HasConstraintName("FK_Orders_CancelledByUser");
+
                     b.HasOne("AppPOS.Api.Models.Customer", "Customer")
                         .WithMany("Orders")
                         .HasForeignKey("CustomerId")
@@ -643,6 +668,12 @@ namespace AppPOS.Api.Migrations
                         .HasForeignKey("SectionId")
                         .IsRequired()
                         .HasConstraintName("FK_Orders_Sections");
+
+                    b.HasOne("AppPOS.Api.Models.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .IsRequired()
+                        .HasConstraintName("FK_Orders_Users");
 
                     b.Navigation("Customer");
                 });

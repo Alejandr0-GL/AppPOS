@@ -98,6 +98,10 @@ public partial class AppPosDbContext : DbContext
                 .HasDefaultValueSql("(sysdatetime())")
                 .HasColumnName("updated_at");
 
+            entity.HasIndex(e => new { e.ProductId, e.SectionId })
+                .IsUnique()
+                .HasDatabaseName("UX_Inventories_Product_Section");
+
             entity.HasOne(d => d.Product).WithMany(p => p.Inventories)
                 .HasForeignKey(d => d.ProductId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
@@ -116,12 +120,17 @@ public partial class AppPosDbContext : DbContext
             entity.Property(e => e.OrderId).HasColumnName("order_id");
             entity.Property(e => e.CustomerId).HasColumnName("customer_id");
             entity.Property(e => e.SectionId).HasColumnName("section_id");
+            entity.Property(e => e.UserId).HasColumnName("user_id");
+            entity.Property(e => e.CancelledByUserId).HasColumnName("cancelled_by_user_id");
             entity.Property(e => e.Date)
                 .HasDefaultValueSql("(sysdatetime())")
                 .HasColumnName("date");
             entity.Property(e => e.PaymentMethod)
                 .HasMaxLength(50)
                 .HasColumnName("payment_method");
+            entity.Property(e => e.InvoiceType)
+                .HasMaxLength(20)
+                .HasColumnName("invoice_type");
             entity.Property(e => e.Status)
                 .HasMaxLength(50)
                 .HasColumnName("status");
@@ -139,6 +148,18 @@ public partial class AppPosDbContext : DbContext
                 .HasForeignKey(d => d.SectionId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_Orders_Sections");
+
+            entity.HasOne<User>()
+                .WithMany()
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Orders_Users");
+
+            entity.HasOne<User>()
+                .WithMany()
+                .HasForeignKey(d => d.CancelledByUserId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Orders_CancelledByUser");
         });
 
         modelBuilder.Entity<OrderDetail>(entity =>

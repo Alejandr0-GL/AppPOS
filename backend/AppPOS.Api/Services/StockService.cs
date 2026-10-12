@@ -74,6 +74,11 @@ namespace AppPOS.Api.Services
 
         public async Task AdjustStockAsync(int userId, int productId, int sectionId, int newQuantity, string reason)
         {
+            if (newQuantity < 0)
+            {
+                throw new InvalidOperationException("El stock no puede ser negativo.");
+            }
+
             var inventory = await _context.Inventories
                 .FirstOrDefaultAsync(i => i.ProductId == productId && i.SectionId == sectionId);
 
@@ -113,6 +118,48 @@ namespace AppPOS.Api.Services
             };
 
             _context.StockMovements.Add(movement);
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task UpdateInventoryAsync(int userId, int inventoryId, int sectionId, int currentStock, int minStock, string reason)
+        {
+            if (currentStock < 0 || minStock < 0)
+            {
+                throw new InvalidOperationException("El stock actual y el stock mínimo no pueden ser negativos.");
+            }
+
+            if (string.IsNullOrWhiteSpace(reason))
+            {
+                throw new InvalidOperationException("El motivo del ajuste es obligatorio.");
+            }
+
+            var inventory = await _context.Inventories
+                .FirstOrDefaultAsync(i => i.InventoryId == inventoryId && i.SectionId == sectionId);
+
+            if (inventory == null)
+            {
+                throw new KeyNotFoundException("El inventario no existe en la unidad de negocio seleccionada.");
+            }
+
+            var difference = currentStock - inventory.CurrentStock;
+            inventory.CurrentStock = currentStock;
+            inventory.MinStock = minStock;
+            inventory.UpdatedAt = DateTime.Now;
+
+            if (difference != 0)
+            {
+                _context.StockMovements.Add(new StockMovement
+                {
+                    UserId = userId,
+                    ProductId = inventory.ProductId,
+                    SectionId = inventory.SectionId,
+                    Quantity = difference,
+                    MovementType = "ADJUSTMENT",
+                    Reason = reason,
+                    CreatedAt = DateTime.Now
+                });
+            }
+
             await _context.SaveChangesAsync();
         }
 

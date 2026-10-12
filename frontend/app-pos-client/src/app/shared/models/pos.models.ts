@@ -8,6 +8,7 @@ export interface Product {
   purchasePrice: number;
   taxId: number;
   categoryId: number;
+  category?: { categoryId: number; name: string };
 }
 
 export interface Customer {
@@ -42,8 +43,11 @@ export interface OrderSummary {
   date: string;
   totalAmount: number;
   paymentMethod?: string;
+  invoiceType: 'POS' | 'ELECTRONIC' | string;
   status: string;
   customer?: Pick<Customer, 'customerId' | 'name' | 'documentNumber'> | null;
+  user?: { userId: number; username: string } | null;
+  cancelledBy?: { userId: number; username: string } | null;
 }
 
 export interface OrderDetail {
@@ -59,4 +63,26 @@ export interface OrderDetail {
 export interface Order extends OrderSummary {
   customer?: Customer | null;
   details: OrderDetail[];
+}
+
+export interface Inventory {
+  inventoryId: number;
+  productId: number;
+  sectionId: number;
+  currentStock: number;
+  minStock: number;
+  updatedAt: string;
+  product: Pick<Product, 'productId' | 'name' | 'sku' | 'barcode' | 'salePrice'> & { category?: { categoryId: number; name: string } | null };
+  section: { sectionId: number; name: string };
+}
+
+export interface StockMovement {
+  movementId: number;
+  quantity: number;
+  movementType: string;
+  reason?: string;
+  createdAt: string;
+  product?: Pick<Product, 'productId' | 'name' | 'sku'> | null;
+  section?: { sectionId: number; name: string } | null;
+  user?: { userId: number; username: string } | null;
 }

@@ -1,7 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { map, Observable } from 'rxjs';
-import { Product, Customer, CreateOrderDto, Order, OrderSummary } from '../../../shared/models/pos.models';
+import { Product, Customer, CreateOrderDto, Order, OrderSummary, Inventory, StockMovement } from '../../../shared/models/pos.models';
 
 export interface Section {
   sectionId: number;
@@ -54,7 +54,7 @@ export class PosService {
     return this.http.post(`${this.apiUrl}/Orders`, order);
   }
 
-  getOrders(filters: { startDate?: string; endDate?: string; customerId?: number; status?: string; sectionId?: number } = {}): Observable<OrderSummary[]> {
+  getOrders(filters: { startDate?: string; endDate?: string; customerId?: number; status?: string; sectionId?: number; invoiceType?: string } = {}): Observable<OrderSummary[]> {
     const params = new URLSearchParams();
 
     if (filters.startDate) params.set('startDate', filters.startDate);
@@ -62,6 +62,7 @@ export class PosService {
     if (filters.customerId) params.set('customerId', filters.customerId.toString());
     if (filters.status) params.set('status', filters.status);
     if (filters.sectionId) params.set('sectionId', filters.sectionId.toString());
+    if (filters.invoiceType) params.set('invoiceType', filters.invoiceType);
 
     const query = params.toString();
     return this.http.get<OrderSummary[]>(`${this.apiUrl}/Orders${query ? `?${query}` : ''}`);
@@ -76,5 +77,19 @@ export class PosService {
       `${this.apiUrl}/Orders/${orderId}/cancel`,
       { userId }
     );
+  }
+
+  getInventories(sectionId: number): Observable<Inventory[]> {
+    return this.http.get<Inventory[]>(`${this.apiUrl}/Inventories?sectionId=${sectionId}`);
+  }
+
+  updateInventory(inventoryId: number, inventory: { userId: number; sectionId: number; currentStock: number; minStock: number; reason: string }): Observable<{ message: string }> {
+    return this.http.put<{ message: string }>(`${this.apiUrl}/Inventories/${inventoryId}`, inventory);
+  }
+
+  getStockMovements(sectionId: number, productId?: number): Observable<StockMovement[]> {
+    const params = new URLSearchParams({ sectionId: sectionId.toString() });
+    if (productId) params.set('productId', productId.toString());
+    return this.http.get<StockMovement[]>(`${this.apiUrl}/StockMovements?${params.toString()}`);
   }
 }

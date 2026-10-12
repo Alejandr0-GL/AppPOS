@@ -27,7 +27,8 @@ namespace AppPOS.Api.Controllers
             [FromQuery] DateTime? endDate,
             [FromQuery] int? customerId,
             [FromQuery] string? status,
-            [FromQuery] int? sectionId)
+            [FromQuery] int? sectionId,
+            [FromQuery] string? invoiceType)
         {
             var query = _context.Orders.AsQueryable();
 
@@ -57,6 +58,11 @@ namespace AppPOS.Api.Controllers
                 query = query.Where(o => o.SectionId == sectionId.Value);
             }
 
+            if (!string.IsNullOrWhiteSpace(invoiceType))
+            {
+                query = query.Where(o => o.InvoiceType == invoiceType);
+            }
+
             var orders = await query
                 .OrderByDescending(o => o.Date)
                 .Select(o => new
@@ -67,8 +73,19 @@ namespace AppPOS.Api.Controllers
                     o.Date,
                     o.TotalAmount,
                     o.PaymentMethod,
+                    o.UserId,
+                    o.InvoiceType,
+                    o.CancelledByUserId,
                     o.Status,
-                    Customer = o.Customer != null ? new { o.Customer.CustomerId, o.Customer.Name, o.Customer.DocumentNumber } : null
+                    Customer = o.Customer != null ? new { o.Customer.CustomerId, o.Customer.Name, o.Customer.DocumentNumber } : null,
+                    User = _context.Users
+                        .Where(user => user.UserId == o.UserId)
+                        .Select(user => new { user.UserId, user.Username })
+                        .FirstOrDefault(),
+                    CancelledBy = _context.Users
+                        .Where(user => user.UserId == o.CancelledByUserId)
+                        .Select(user => new { user.UserId, user.Username })
+                        .FirstOrDefault()
                 })
                 .ToListAsync();
 
@@ -85,9 +102,13 @@ namespace AppPOS.Api.Controllers
                 {
                     o.OrderId,
                     o.CustomerId,
+                    o.SectionId,
+                    o.UserId,
                     o.Date,
                     o.TotalAmount,
                     o.PaymentMethod,
+                    o.InvoiceType,
+                    o.CancelledByUserId,
                     o.Status,
                     Customer = o.Customer != null ? new
                     {
@@ -97,6 +118,14 @@ namespace AppPOS.Api.Controllers
                         o.Customer.Phone,
                         o.Customer.Email
                     } : null,
+                        User = _context.Users
+                            .Where(user => user.UserId == o.UserId)
+                            .Select(user => new { user.UserId, user.Username })
+                            .FirstOrDefault(),
+                    CancelledBy = _context.Users
+                        .Where(user => user.UserId == o.CancelledByUserId)
+                        .Select(user => new { user.UserId, user.Username })
+                        .FirstOrDefault(),
                     Section = _context.Sections
                         .Where(section => section.SectionId == o.SectionId)
                         .Select(section => new { section.SectionId, section.Name })
@@ -155,6 +184,11 @@ namespace AppPOS.Api.Controllers
                 return BadRequest(new { message = "Todos los productos de la orden deben pertenecer a la unidad de negocio seleccionada." });
             }
 
+            if (!await _context.Users.AnyAsync(user => user.UserId == dto.UserId && user.IsActive))
+            {
+                return BadRequest(new { message = "El usuario que registra la venta no existe o está inactivo." });
+            }
+
             using var transaction = await _context.Database.BeginTransactionAsync();
 
             try
@@ -206,8 +240,10 @@ namespace AppPOS.Api.Controllers
                 {
                     CustomerId = dto.CustomerId,
                     SectionId = dto.SectionId,
+                    UserId = dto.UserId,
                     Date = DateTime.Now,
                     PaymentMethod = dto.PaymentMethod,
+                    InvoiceType = dto.InvoiceType?.ToUpper() == "ELECTRONIC" ? "ELECTRONIC" : "POS",
                     Status = isElectronic ? "PENDING_ELECTRONIC" : "COMPLETED", // Útil si luego envías el XML a un proveedor tecnológico
                     TotalAmount = grandTotal
                 };
@@ -292,6 +328,7 @@ namespace AppPOS.Api.Controllers
                 }
 
                 order.Status = "CANCELLED";
+                order.CancelledByUserId = dto.UserId;
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
 

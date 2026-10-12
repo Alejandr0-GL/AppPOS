@@ -1,4 +1,5 @@
-﻿using AppPOS.Api.Models;
+﻿using AppPOS.Api.DTOs;
+using AppPOS.Api.Models;
 using AppPOS.Api.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -21,38 +22,72 @@ namespace AppPOS.Api.Controllers
 
         // GET: api/Inventories?sectionId=1&productId=2
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Inventory>>> GetInventories([FromQuery] int? sectionId, [FromQuery] int? productId)
+        public async Task<ActionResult<IEnumerable<object>>> GetInventories([FromQuery] int sectionId, [FromQuery] int? productId)
         {
-            var query = _context.Inventories
-                .Include(i => i.Product)
-                .Include(i => i.Section)
-                .AsQueryable();
-
-            if (sectionId.HasValue)
+            if (sectionId <= 0)
             {
-                query = query.Where(i => i.SectionId == sectionId.Value);
+                return BadRequest(new { message = "sectionId es obligatorio para consultar inventario." });
             }
+
+            var query = _context.Inventories
+                .Where(i => i.SectionId == sectionId)
+                .AsQueryable();
 
             if (productId.HasValue)
             {
                 query = query.Where(i => i.ProductId == productId.Value);
             }
 
-            return await query.ToListAsync();
+            return Ok(await query
+                .OrderBy(i => i.Product.Name)
+                .Select(i => new
+                {
+                    i.InventoryId,
+                    i.ProductId,
+                    i.SectionId,
+                    i.CurrentStock,
+                    i.MinStock,
+                    i.UpdatedAt,
+                    Product = new
+                    {
+                        i.Product.ProductId,
+                        i.Product.Name,
+                        i.Product.Sku,
+                        i.Product.Barcode,
+                        i.Product.SalePrice,
+                        Category = i.Product.Category == null ? null : new { i.Product.Category.CategoryId, i.Product.Category.Name }
+                    },
+                    Section = new { i.Section.SectionId, i.Section.Name }
+                })
+                .ToListAsync());
         }
 
-        // POST: api/Inventories/adjust
-        [HttpPost("adjust")]
-        public async Task<IActionResult> AdjustStock([FromQuery] int userId, [FromQuery] int productId, [FromQuery] int sectionId, [FromQuery] int newQuantity, [FromQuery] string reason)
+        // PUT: api/Inventories/5
+        [HttpPut("{id:int}")]
+        public async Task<IActionResult> AdjustStock([FromBody] UpdateInventoryDto dto, int id)
         {
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+
             try
             {
-                await _stockService.AdjustStockAsync(userId, productId, sectionId, newQuantity, reason);
+                await _stockService.UpdateInventoryAsync(dto.UserId, id, dto.SectionId, dto.CurrentStock, dto.MinStock, dto.Reason ?? string.Empty);
+                await transaction.CommitAsync();
                 return Ok(new { message = "Stock ajustado correctamente." });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                await transaction.RollbackAsync();
+                return NotFound(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                await transaction.RollbackAsync();
+                return BadRequest(new { message = ex.Message });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Error al ajustar stock: {ex.Message}");
+                await transaction.RollbackAsync();
+                return StatusCode(500, new { message = $"Error al ajustar stock: {ex.Message}" });
             }
         }
     }

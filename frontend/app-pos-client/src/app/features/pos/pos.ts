@@ -124,7 +124,7 @@ import { Product, Customer, CreateOrderDto } from '../../shared/models/pos.model
               [class.bg-indigo-600]="invoiceType === 'POS'"
               [class.text-white]="invoiceType === 'POS'"
               class="flex-1 py-1.5 border border-slate-300 rounded-lg text-xs font-bold text-slate-600 bg-white">
-              Ticket POS
+              Factura de venta
             </button>
             <button 
               (click)="invoiceType = 'ELECTRONIC'"
