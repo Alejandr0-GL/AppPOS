@@ -11,11 +11,17 @@ public partial class Order
 
     public int SectionId { get; set; }
 
+    public int UserId { get; set; }
+
+    public int? CancelledByUserId { get; set; }
+
     public DateTime Date { get; set; }
 
     public decimal TotalAmount { get; set; }
 
     public string? PaymentMethod { get; set; }
+
+    public string InvoiceType { get; set; } = "POS";
 
     public string Status { get; set; } = null!;
 
