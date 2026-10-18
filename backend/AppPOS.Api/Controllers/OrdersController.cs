@@ -226,7 +226,10 @@ namespace AppPOS.Api.Controllers
                         return BadRequest(new { message = $"El producto con ID {item.ProductId} no existe." });
                     }
 
-                    decimal lineBase = item.Quantity * item.UnitPrice;
+                    // El precio unitario SIEMPRE se toma del producto consultado en BD.
+                    // El UnitPrice enviado por el cliente se ignora para evitar manipulación de precios.
+                    decimal unitPrice = product.SalePrice;
+                    decimal lineBase = item.Quantity * unitPrice;
                     decimal calculatedTax = 0m;
 
                     // Solo si es Factura Electrónica se calcula el IVA dependiendo del producto
@@ -242,7 +245,7 @@ namespace AppPOS.Api.Controllers
                     {
                         ProductId = item.ProductId,
                         Quantity = item.Quantity,
-                        UnitPrice = item.UnitPrice,
+                        UnitPrice = unitPrice,
                         TaxAmount = calculatedTax,
                         Subtotal = lineSubtotal
                     });
@@ -257,7 +260,9 @@ namespace AppPOS.Api.Controllers
                     Date = DateTime.Now,
                     PaymentMethod = dto.PaymentMethod,
                     InvoiceType = dto.InvoiceType?.ToUpper() == "ELECTRONIC" ? "ELECTRONIC" : "POS",
-                    Status = isElectronic ? "PENDING_ELECTRONIC" : "COMPLETED", // Útil si luego envías el XML a un proveedor tecnológico
+                    // Pre-MVP: toda venta se registra como COMPLETED para que aparezca en el historial
+                    // y pueda cancelarse. El InvoiceType conserva la distinción POS vs. ELECTRONIC.
+                    Status = "COMPLETED",
                     TotalAmount = grandTotal
                 };
 
@@ -325,9 +330,10 @@ namespace AppPOS.Api.Controllers
                     return Conflict(new { message = "La orden ya fue cancelada." });
                 }
 
-                if (order.Status != "COMPLETED")
+                // Se admite también PENDING_ELECTRONIC para poder anular facturas electrónicas heredadas.
+                if (order.Status != "COMPLETED" && order.Status != "PENDING_ELECTRONIC")
                 {
-                    return BadRequest(new { message = "Solo se pueden cancelar órdenes completadas." });
+                    return BadRequest(new { message = "Solo se pueden cancelar órdenes completadas o pendientes de envío electrónico." });
                 }
 
                 foreach (var detail in order.OrderDetails)
