@@ -97,3 +97,52 @@ export interface ProductCatalogItem extends Product {
   tax?: { taxId: number; name: string; percentage: number } | null;
   sections: Array<{ inventoryId: number; sectionId: number; name: string; currentStock: number; minStock: number }>;
 }
+
+export interface Supplier {
+  supplierId: number;
+  name: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+}
+
+export interface PurchaseDetail {
+  purchaseDetailId: number;
+  productId: number;
+  sectionId: number;
+  quantity: number;
+  purchasePrice: number;
+  subtotal: number;
+  product?: { productId: number; sku: string; barcode?: string; name: string } | null;
+  section?: { sectionId: number; name: string } | null;
+}
+
+export interface PurchaseSummary {
+  purchaseId: number;
+  supplierId: number;
+  userId: number;
+  date: string;
+  invoiceNumber?: string | null;
+  observations?: string | null;
+  status: string;
+  totalAmount: number;
+  supplier?: { supplierId: number; name: string } | null;
+  user?: { userId: number; username: string } | null;
+  details: PurchaseDetail[];
+  sections: Array<{ sectionId: number; name: string }>;
+}
+
+export interface CreatePurchaseDetailDto {
+  productId: number;
+  quantity: number;
+  purchasePrice: number;
+}
+
+export interface CreatePurchaseDto {
+  userId: number;
+  supplierId: number;
+  invoiceNumber?: string;
+  sectionId: number;
+  observations?: string;
+  details: CreatePurchaseDetailDto[];
+}

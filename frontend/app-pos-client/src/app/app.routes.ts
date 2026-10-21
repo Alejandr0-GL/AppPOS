@@ -5,6 +5,8 @@ import { SalesHistoryComponent } from './features/pos/sales-history/sales-histor
 import { InventoryComponent } from './features/inventory/inventory';
 import { ProductsComponent } from './features/products/products';
 import { CustomersComponent } from './features/customers/customers';
+import { PurchasesComponent } from './features/purchases/purchases';
+import { SuppliersComponent } from './features/suppliers/suppliers';
 
 export const routes: Routes = [
     {
@@ -16,6 +18,8 @@ export const routes: Routes = [
       { path: 'sales-history', component: SalesHistoryComponent },
       { path: 'inventory', component: InventoryComponent }
       ,{ path: 'products', component: ProductsComponent },
+      { path: 'purchases', component: PurchasesComponent },
+      { path: 'suppliers', component: SuppliersComponent },
       { path: 'customers', component: CustomersComponent }
     ] 
   }
