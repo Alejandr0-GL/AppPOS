@@ -22,11 +22,11 @@ namespace AppPOS.Api.Services
             string movementType,
             string reason)
         {
-            // 1. Actualizar el precio de compra del producto (si aplica)
+            // 1. Actualizar el precio de compra del producto (solo si cambió)
             if (purchasePrice > 0)
             {
                 var product = await _context.Products.FindAsync(productId);
-                if (product != null)
+                if (product != null && product.PurchasePrice != purchasePrice)
                 {
                     product.PurchasePrice = purchasePrice;
                     product.UpdatedAt = DateTime.Now;
@@ -227,6 +227,41 @@ namespace AppPOS.Api.Services
                 SectionId = sectionId,
                 Quantity = quantity,
                 MovementType = "SALE_CANCELLED",
+                Reason = reason,
+                CreatedAt = DateTime.Now
+            });
+        }
+
+        public async Task ReversePurchaseAsync(int userId, int productId, int sectionId, int quantity, string reason)
+        {
+            if (quantity <= 0)
+            {
+                throw new InvalidOperationException("La cantidad a revertir debe ser mayor que cero.");
+            }
+
+            var inventory = await _context.Inventories
+                .FirstOrDefaultAsync(i => i.ProductId == productId && i.SectionId == sectionId);
+
+            if (inventory == null)
+            {
+                throw new InvalidOperationException($"No existe inventario para el producto ID {productId} en la sección {sectionId}.");
+            }
+
+            if (inventory.CurrentStock < quantity)
+            {
+                throw new InvalidOperationException($"Stock insuficiente para el producto ID {productId} en la sección {sectionId}. Stock actual: {inventory.CurrentStock}, requerido: {quantity}.");
+            }
+
+            inventory.CurrentStock -= quantity;
+            inventory.UpdatedAt = DateTime.Now;
+
+            _context.StockMovements.Add(new StockMovement
+            {
+                UserId = userId,
+                ProductId = productId,
+                SectionId = sectionId,
+                Quantity = -quantity, // Valor negativo representa salida por anulación
+                MovementType = "PURCHASE_CANCELED",
                 Reason = reason,
                 CreatedAt = DateTime.Now
             });
