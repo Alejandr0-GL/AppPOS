@@ -146,3 +146,39 @@ export interface CreatePurchaseDto {
   observations?: string;
   details: CreatePurchaseDetailDto[];
 }
+
+export interface DashboardSummary {
+  activeProducts: number;
+  totalUnits: number;
+  costValue: number;
+  saleValue: number;
+  potentialProfit: number;
+  lowStockCount: number;
+  outOfStockCount: number;
+  todaySalesTotal: number;
+  todayOrdersCount: number;
+}
+
+export interface SalesTrendPoint {
+  date: string;
+  total: number;
+}
+
+export interface CategoryDistributionItem {
+  category: string;
+  costValue: number;
+  saleValue: number;
+  totalUnits: number;
+  productCount: number;
+}
+
+export interface LowStockItem {
+  inventoryId: number;
+  productId: number;
+  name: string;
+  sku: string;
+  barcode?: string | null;
+  category?: string | null;
+  currentStock: number;
+  minStock: number;
+}
