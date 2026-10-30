@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { CategoryDistributionItem, DashboardSummary, LowStockItem, SalesTrendPoint } from '../../../shared/models/pos.models';
+import { DashboardSummary, LowStockItem, ProfitTrendPoint, SalesTrendPoint } from '../../../shared/models/pos.models';
 
 @Injectable({ providedIn: 'root' })
 export class DashboardService {
@@ -16,11 +16,19 @@ export class DashboardService {
     return this.http.get<LowStockItem[]>(`${this.apiUrl}/low-stock?sectionId=${sectionId}`);
   }
 
-  getSalesTrend(sectionId: number): Observable<SalesTrendPoint[]> {
-    return this.http.get<SalesTrendPoint[]>(`${this.apiUrl}/charts/sales-trend?sectionId=${sectionId}`);
+  getSalesTrend(sectionId: number, startDate?: string, endDate?: string): Observable<SalesTrendPoint[]> {
+    const params = new URLSearchParams({ sectionId: sectionId.toString() });
+    if (startDate) params.set('startDate', startDate);
+    if (endDate) params.set('endDate', endDate);
+
+    return this.http.get<SalesTrendPoint[]>(`${this.apiUrl}/charts/sales-trend?${params.toString()}`);
   }
 
-  getCategoryDistribution(sectionId: number): Observable<CategoryDistributionItem[]> {
-    return this.http.get<CategoryDistributionItem[]>(`${this.apiUrl}/charts/category-distribution?sectionId=${sectionId}`);
+  getProfitTrend(sectionId: number, startDate?: string, endDate?: string): Observable<ProfitTrendPoint[]> {
+    const params = new URLSearchParams({ sectionId: sectionId.toString() });
+    if (startDate) params.set('startDate', startDate);
+    if (endDate) params.set('endDate', endDate);
+
+    return this.http.get<ProfitTrendPoint[]>(`${this.apiUrl}/charts/profit-trend?${params.toString()}`);
   }
 }

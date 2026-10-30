@@ -266,6 +266,10 @@ namespace AppPOS.Api.Migrations
                         .HasColumnType("decimal(18, 2)")
                         .HasColumnName("tax_amount");
 
+                    b.Property<decimal>("UnitCost")
+                        .HasColumnType("decimal(18, 2)")
+                        .HasColumnName("unit_cost");
+
                     b.Property<decimal>("UnitPrice")
                         .HasColumnType("decimal(18, 2)")
                         .HasColumnName("unit_price");

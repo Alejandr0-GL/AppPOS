@@ -149,6 +149,7 @@ namespace AppPOS.Api.Controllers
                         detail.ProductId,
                         detail.Quantity,
                         detail.UnitPrice,
+                        detail.UnitCost,
                         detail.TaxAmount,
                         detail.Subtotal,
                         Product = _context.Products
@@ -246,6 +247,7 @@ namespace AppPOS.Api.Controllers
                         ProductId = item.ProductId,
                         Quantity = item.Quantity,
                         UnitPrice = unitPrice,
+                        UnitCost = product.PurchasePrice,
                         TaxAmount = calculatedTax,
                         Subtotal = lineSubtotal
                     });

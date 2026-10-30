@@ -2,8 +2,6 @@ namespace AppPOS.Api.DTOs
 {
     public class DashboardSummaryDto
     {
-        public int ActiveProducts { get; set; }
-        public int TotalUnits { get; set; }
         public decimal CostValue { get; set; }
         public decimal SaleValue { get; set; }
         public decimal PotentialProfit { get; set; }
@@ -26,6 +24,14 @@ namespace AppPOS.Api.DTOs
         public decimal SaleValue { get; set; }
         public int TotalUnits { get; set; }
         public int ProductCount { get; set; }
+    }
+
+    public class ProfitTrendPointDto
+    {
+        public DateTime Date { get; set; }
+        public decimal Sales { get; set; }
+        public decimal Cost { get; set; }
+        public decimal Profit { get; set; }
     }
 
     public class LowStockItemDto

@@ -3,7 +3,7 @@ import { Component, computed, effect, inject, signal, untracked } from '@angular
 import { ChartData, ChartOptions } from 'chart.js';
 import { BaseChartDirective } from 'ng2-charts';
 import { catchError, forkJoin, of } from 'rxjs';
-import { CategoryDistributionItem, DashboardSummary, LowStockItem, SalesTrendPoint } from '../../shared/models/pos.models';
+import { DashboardSummary, LowStockItem, ProfitTrendPoint, SalesTrendPoint } from '../../shared/models/pos.models';
 import { PosService, Section } from '../pos/services/pos.service';
 import { DashboardService } from './services/dashboard.service';
 
@@ -47,13 +47,13 @@ import { DashboardService } from './services/dashboard.service';
 
         <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <article class="rounded-2xl border border-slate-200 border-l-4 border-l-sky-500 bg-white p-5 shadow-sm">
-            <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Valor a costo</p>
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Valor a precio de compra</p>
             <p class="mt-2 text-3xl font-black text-slate-900">{{ data.costValue | currency:'COP':'symbol':'1.0-0' }}</p>
             <p class="mt-1 text-xs text-slate-400">Inventario valorado al precio de compra.</p>
           </article>
 
           <article class="rounded-2xl border border-slate-200 border-l-4 border-l-emerald-500 bg-white p-5 shadow-sm">
-            <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Valor a venta</p>
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Valor a precio de venta</p>
             <p class="mt-2 text-3xl font-black text-emerald-700">{{ data.saleValue | currency:'COP':'symbol':'1.0-0' }}</p>
             <p class="mt-1 text-xs text-slate-400">Inventario valorado al precio de venta.</p>
           </article>
@@ -66,17 +66,8 @@ import { DashboardService } from './services/dashboard.service';
         </div>
 
         <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <article class="rounded-2xl border border-slate-200 border-l-4 border-l-indigo-400 bg-white p-5 shadow-sm">
-            <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Productos activos</p>
-            <p class="mt-2 text-3xl font-black text-slate-900">{{ data.activeProducts }}</p>
-            <p class="mt-1 text-xs text-slate-400">Referencias con inventario.</p>
-          </article>
 
-          <article class="rounded-2xl border border-slate-200 border-l-4 border-l-slate-400 bg-white p-5 shadow-sm">
-            <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Unidades en stock</p>
-            <p class="mt-2 text-3xl font-black text-slate-900">{{ data.totalUnits }}</p>
-            <p class="mt-1 text-xs text-slate-400">Suma de existencias físicas.</p>
-          </article>
+          
 
           <article class="rounded-2xl border border-slate-200 border-l-4 border-l-amber-500 bg-white p-5 shadow-sm">
             <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Stock bajo</p>
@@ -92,18 +83,46 @@ import { DashboardService } from './services/dashboard.service';
         </div>
       }
 
+      <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div class="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h3 class="text-sm font-bold text-slate-700">Rango de fechas de los gráficos</h3>
+            <p class="text-xs text-slate-400">{{ trendRangeLabel() }} · {{ activeSectionName() }}</p>
+          </div>
+          <div class="flex flex-wrap items-end gap-2">
+            <label class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Desde
+              <input #trendStartInput type="date" [value]="trendStartDate" (change)="onTrendStartChange(trendStartInput.value, trendStartInput)" class="mt-1 block rounded-lg border border-slate-300 px-2 py-1.5 text-sm font-normal text-slate-800" />
+            </label>
+            <label class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Hasta
+              <input #trendEndInput type="date" [value]="trendEndDate" (change)="onTrendEndChange(trendEndInput.value, trendEndInput)" class="mt-1 block rounded-lg border border-slate-300 px-2 py-1.5 text-sm font-normal text-slate-800" />
+            </label>
+            <button (click)="setTrendRange(7)" class="rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100">7 días</button>
+            <button (click)="setTrendRange(30)" class="rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100">30 días</button>
+          </div>
+        </div>
+
+        @if (trendError()) {
+          <div class="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{{ trendError() }}</div>
+        }
+      </div>
+
       <div class="grid gap-4 xl:grid-cols-2">
         <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div class="mb-4 flex flex-wrap items-start justify-between gap-2">
             <div>
               <h3 class="text-sm font-bold text-slate-700">Tendencia de ventas</h3>
-              <p class="text-xs text-slate-400">Últimos 7 días · {{ activeSectionName() }}</p>
+              <p class="text-xs text-slate-400">{{ trendRangeLabel() }}</p>
             </div>
-            <span class="rounded-full bg-indigo-100 px-2 py-1 text-xs font-bold text-indigo-700">{{ salesTrendTotal() | currency:'COP':'symbol':'1.0-0' }}</span>
+            <div class="flex items-center gap-2">
+              @if (trendLoading()) {
+                <span class="text-xs text-slate-400">Actualizando...</span>
+              }
+              <span class="rounded-full bg-indigo-100 px-2 py-1 text-xs font-bold text-indigo-700">{{ salesTrendTotal() | currency:'COP':'symbol':'1.0-0' }}</span>
+            </div>
           </div>
           @if (salesTrend().length > 0) {
             <div class="h-72">
-              <canvas baseChart type="line" [data]="salesChartData()" [options]="salesChartOptions"></canvas>
+              <canvas baseChart type="line" [data]="salesChartData()" [options]="salesChartOptions()"></canvas>
             </div>
           } @else {
             <div class="flex h-72 items-center justify-center text-sm text-slate-400">Sin datos de ventas recientes.</div>
@@ -111,16 +130,19 @@ import { DashboardService } from './services/dashboard.service';
         </article>
 
         <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div class="mb-4">
-            <h3 class="text-sm font-bold text-slate-700">Distribución del inventario</h3>
-            <p class="text-xs text-slate-400">Valor a costo agrupado por categoría.</p>
+          <div class="mb-4 flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <h3 class="text-sm font-bold text-slate-700">Ganancias a través del tiempo</h3>
+              <p class="text-xs text-slate-400">Ventas, costo y ganancia del período</p>
+            </div>
+            <span class="rounded-full bg-emerald-100 px-2 py-1 text-xs font-bold text-emerald-700">{{ profitTrendTotal() | currency:'COP':'symbol':'1.0-0' }}</span>
           </div>
-          @if (categoryDistribution().length > 0) {
+          @if (profitTrend().length > 0) {
             <div class="h-72">
-              <canvas baseChart type="doughnut" [data]="categoryChartData()" [options]="categoryChartOptions"></canvas>
+              <canvas baseChart type="line" [data]="profitChartData()" [options]="profitChartOptions()"></canvas>
             </div>
           } @else {
-            <div class="flex h-72 items-center justify-center text-sm text-slate-400">Sin datos de inventario para graficar.</div>
+            <div class="flex h-72 items-center justify-center text-sm text-slate-400">Sin datos de ganancias para el período.</div>
           }
         </article>
       </div>
@@ -171,10 +193,14 @@ export class DashboardComponent {
   summary = signal<DashboardSummary | null>(null);
   lowStock = signal<LowStockItem[]>([]);
   salesTrend = signal<SalesTrendPoint[]>([]);
-  categoryDistribution = signal<CategoryDistributionItem[]>([]);
+  profitTrend = signal<ProfitTrendPoint[]>([]);
   sections = signal<Section[]>([]);
   loading = signal(false);
   errorMessage = signal('');
+  trendLoading = signal(false);
+  trendError = signal('');
+  trendStartDate = '';
+  trendEndDate = '';
 
   selectedSectionId = this.posService.selectedSectionId;
 
@@ -183,9 +209,10 @@ export class DashboardComponent {
     return this.sections().find(section => section.sectionId === sectionId)?.name ?? 'Unidad activa';
   });
 
-  private readonly chartPalette = ['#4f46e5', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#f97316', '#64748b', '#ec4899'];
+  private trendRequestId = 0;
 
   salesTrendTotal = computed(() => this.salesTrend().reduce((total, point) => total + point.total, 0));
+  profitTrendTotal = computed(() => this.profitTrend().reduce((total, point) => total + point.profit, 0));
 
   salesChartData = computed<ChartData<'line'>>(() => ({
     labels: this.salesTrend().map(point => this.formatDayLabel(point.date)),
@@ -206,7 +233,7 @@ export class DashboardComponent {
     ]
   }));
 
-  salesChartOptions: ChartOptions<'line'> = {
+  salesChartOptions = computed<ChartOptions<'line'>>(() => ({
     responsive: true,
     maintainAspectRatio: false,
     interaction: { mode: 'index', intersect: false },
@@ -219,7 +246,14 @@ export class DashboardComponent {
       }
     },
     scales: {
-      x: { grid: { display: false } },
+      x: {
+        grid: { display: false },
+        ticks: {
+          // Con 15 días o más se ocultan las etiquetas diarias para evitar saturación.
+          // El tooltip conserva la fecha del día.
+          display: this.salesTrend().length < 15
+        }
+      },
       y: {
         beginAtZero: true,
         ticks: {
@@ -227,37 +261,89 @@ export class DashboardComponent {
         }
       }
     }
-  };
-
-  categoryChartData = computed<ChartData<'doughnut'>>(() => ({
-    labels: this.categoryDistribution().map(item => item.category),
-    datasets: [
-      {
-        data: this.categoryDistribution().map(item => item.costValue),
-        backgroundColor: this.categoryDistribution().map((_, index) => this.chartPalette[index % this.chartPalette.length]),
-        borderColor: '#ffffff',
-        borderWidth: 2,
-        hoverOffset: 6
-      }
-    ]
   }));
 
-  categoryChartOptions: ChartOptions<'doughnut'> = {
+  profitChartData = computed<ChartData<'line'>>(() => {
+    const points = this.profitTrend();
+
+    return {
+      labels: points.map(point => this.formatDayLabel(point.date)),
+      datasets: [
+        {
+          label: 'Ventas',
+          data: points.map(point => point.sales),
+          borderColor: '#4f46e5',
+          backgroundColor: 'rgba(79, 70, 229, 0.10)',
+          pointBackgroundColor: '#4f46e5',
+          pointBorderColor: '#ffffff',
+          pointRadius: 3,
+          pointHoverRadius: 5,
+          borderWidth: 2,
+          fill: true,
+          tension: 0.35
+        },
+        {
+          label: 'Costo',
+          data: points.map(point => point.cost),
+          borderColor: '#f59e0b',
+          backgroundColor: 'rgba(245, 158, 11, 0.10)',
+          pointBackgroundColor: '#f59e0b',
+          pointBorderColor: '#ffffff',
+          pointRadius: 3,
+          pointHoverRadius: 5,
+          borderWidth: 2,
+          fill: false,
+          tension: 0.35
+        },
+        {
+          label: 'Ganancia',
+          data: points.map(point => point.profit),
+          borderColor: '#10b981',
+          backgroundColor: 'rgba(16, 185, 129, 0.16)',
+          pointBackgroundColor: '#10b981',
+          pointBorderColor: '#ffffff',
+          pointRadius: 3,
+          pointHoverRadius: 5,
+          borderWidth: 2,
+          fill: true,
+          tension: 0.35
+        }
+      ]
+    };
+  });
+
+  profitChartOptions = computed<ChartOptions<'line'>>(() => ({
     responsive: true,
     maintainAspectRatio: false,
-    cutout: '62%',
+    interaction: { mode: 'index', intersect: false },
     plugins: {
       legend: {
+        display: true,
         position: 'bottom',
         labels: { usePointStyle: true, boxWidth: 10 }
       },
       tooltip: {
         callbacks: {
-          label: context => ` ${context.label}: ${this.formatCop(context.parsed)}`
+          label: context => ` ${context.dataset.label ?? ''}: ${this.formatCop(context.parsed.y)}`
+        }
+      }
+    },
+    scales: {
+      x: {
+        grid: { display: false },
+        ticks: {
+          // Mismo criterio que la tendencia de ventas: sin etiquetas diarias en rangos largos.
+          display: this.profitTrend().length < 15
+        }
+      },
+      y: {
+        beginAtZero: true,
+        ticks: {
+          callback: value => this.formatCop(Number(value))
         }
       }
     }
-  };
+  }));
 
   private readonly sectionEffect = effect(() => {
     const sectionId = this.posService.selectedSectionId();
@@ -268,12 +354,14 @@ export class DashboardComponent {
       this.summary.set(null);
       this.lowStock.set([]);
       this.salesTrend.set([]);
-      this.categoryDistribution.set([]);
+      this.profitTrend.set([]);
       this.load(sectionId);
     });
   });
 
   constructor() {
+    this.setDefaultTrendRange();
+
     this.posService.getSections().subscribe({
       next: sections => this.sections.set(sections),
       error: () => this.errorMessage.set('No fue posible cargar las unidades de negocio.')
@@ -296,15 +384,11 @@ export class DashboardComponent {
     // Cada métrica degrada de forma independiente: si un gráfico falla, los KPIs siguen visibles.
     forkJoin({
       summary: this.dashboardService.getSummary(targetSectionId).pipe(catchError(fallback<DashboardSummary | null>(null))),
-      lowStock: this.dashboardService.getLowStock(targetSectionId).pipe(catchError(fallback<LowStockItem[]>([]))),
-      salesTrend: this.dashboardService.getSalesTrend(targetSectionId).pipe(catchError(fallback<SalesTrendPoint[]>([]))),
-      categoryDistribution: this.dashboardService.getCategoryDistribution(targetSectionId).pipe(catchError(fallback<CategoryDistributionItem[]>([])))
+      lowStock: this.dashboardService.getLowStock(targetSectionId).pipe(catchError(fallback<LowStockItem[]>([])))
     }).subscribe({
       next: result => {
         this.summary.set(result.summary);
         this.lowStock.set(result.lowStock);
-        this.salesTrend.set(result.salesTrend);
-        this.categoryDistribution.set(result.categoryDistribution);
         this.loading.set(false);
 
         if (failures > 0) {
@@ -316,6 +400,125 @@ export class DashboardComponent {
         this.errorMessage.set('No fue posible cargar las métricas del dashboard.');
       }
     });
+
+    this.loadTrends(targetSectionId);
+  }
+
+  private loadTrends(sectionId?: number): void {
+    const targetSectionId = sectionId ?? this.posService.selectedSectionId();
+    if (!targetSectionId) return;
+
+    const requestId = ++this.trendRequestId;
+    this.trendLoading.set(true);
+    this.trendError.set('');
+
+    let failures = 0;
+    const fallback = <T>(value: T) => () => {
+      failures += 1;
+      return of(value);
+    };
+
+    const startDate = this.trendStartDate || undefined;
+    const endDate = this.trendEndDate || undefined;
+
+    forkJoin({
+      sales: this.dashboardService.getSalesTrend(targetSectionId, startDate, endDate).pipe(catchError(fallback<SalesTrendPoint[]>([]))),
+      profit: this.dashboardService.getProfitTrend(targetSectionId, startDate, endDate).pipe(catchError(fallback<ProfitTrendPoint[]>([])))
+    }).subscribe({
+      next: ({ sales, profit }) => {
+        if (requestId !== this.trendRequestId) return;
+
+        this.salesTrend.set(sales);
+        this.profitTrend.set(profit);
+        this.trendLoading.set(false);
+
+        if (failures > 0) {
+          this.trendError.set('Algunos gráficos no pudieron cargarse. Intenta actualizar nuevamente.');
+        }
+      },
+      error: () => {
+        if (requestId !== this.trendRequestId) return;
+        this.trendLoading.set(false);
+        this.trendError.set('No fue posible cargar los gráficos de tendencia.');
+      }
+    });
+  }
+
+  onTrendStartChange(value: string, input: HTMLInputElement): void {
+    if (!this.validateTrendRange(value, this.trendEndDate)) {
+      // Se restaura visualmente la fecha anterior: el modelo no cambia.
+      input.value = this.trendStartDate;
+      return;
+    }
+
+    this.trendStartDate = value;
+    this.loadTrends();
+  }
+
+  onTrendEndChange(value: string, input: HTMLInputElement): void {
+    if (!this.validateTrendRange(this.trendStartDate, value)) {
+      input.value = this.trendEndDate;
+      return;
+    }
+
+    this.trendEndDate = value;
+    this.loadTrends();
+  }
+
+  private validateTrendRange(startDate: string, endDate: string): boolean {
+    this.trendError.set('');
+
+    if (!startDate || !endDate) {
+      this.trendError.set('Selecciona la fecha inicial y la final.');
+      return false;
+    }
+
+    if (startDate > endDate) {
+      this.trendError.set('La fecha inicial no puede ser mayor que la final.');
+      return false;
+    }
+
+    return true;
+  }
+
+  setTrendRange(days: number): void {
+    const end = new Date();
+    const start = new Date(end);
+    start.setDate(end.getDate() - (days - 1));
+
+    this.trendStartDate = this.toIsoDate(start);
+    this.trendEndDate = this.toIsoDate(end);
+    this.loadTrends();
+  }
+
+  trendRangeLabel(): string {
+    if (!this.trendStartDate || !this.trendEndDate) return 'Selecciona un rango de fechas';
+    return `${this.formatShortDate(this.trendStartDate)} al ${this.formatShortDate(this.trendEndDate)}`;
+  }
+
+  private setDefaultTrendRange(): void {
+    const end = new Date();
+    const start = new Date(end);
+    start.setDate(end.getDate() - 6);
+
+    this.trendStartDate = this.toIsoDate(start);
+    this.trendEndDate = this.toIsoDate(end);
+  }
+
+  private toIsoDate(date: Date): string {
+    const year = date.getFullYear();
+    const month = `${date.getMonth() + 1}`.padStart(2, '0');
+    const day = `${date.getDate()}`.padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  private parseIsoDate(value: string): Date {
+    const [year, month, day] = value.slice(0, 10).split('-').map(Number);
+    return new Date(year, month - 1, day);
+  }
+
+  private formatShortDate(value: string): string {
+    return this.parseIsoDate(value).toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
   }
 
   suggestedUnits(item: LowStockItem): number {
@@ -327,7 +530,7 @@ export class DashboardComponent {
   }
 
   private formatDayLabel(value: string): string {
-    const date = new Date(value);
+    const date = this.parseIsoDate(value);
     return date.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit' });
   }
 

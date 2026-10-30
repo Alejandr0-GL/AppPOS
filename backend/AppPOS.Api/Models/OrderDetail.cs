@@ -15,6 +15,8 @@ public partial class OrderDetail
 
     public decimal UnitPrice { get; set; }
 
+    public decimal UnitCost { get; set; }
+
     public decimal TaxAmount { get; set; }
 
     public decimal Subtotal { get; set; }
