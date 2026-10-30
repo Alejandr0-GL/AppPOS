@@ -17,6 +17,14 @@ import { PosService, Section } from '../../../features/pos/services/pos.service'
         </div>
         
         <nav class="flex-1 p-4 space-y-1">
+          <a routerLink="/dashboard" routerLinkActive="bg-indigo-600 text-white"
+             class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all hover:bg-slate-800 hover:text-white font-medium">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 13h4v8H3v-8zM10 3h4v18h-4V3zM17 9h4v12h-4V9z"/>
+            </svg>
+            Dashboard
+          </a>
+
           <a routerLink="/pos" routerLinkActive="bg-indigo-600 text-white" 
              class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all hover:bg-slate-800 hover:text-white font-medium">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

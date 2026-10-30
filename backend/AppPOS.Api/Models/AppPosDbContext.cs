@@ -201,6 +201,10 @@ public partial class AppPosDbContext : DbContext
                 .HasColumnType("decimal(18, 2)")
                 .HasColumnName("unit_price");
 
+            entity.Property(e => e.UnitCost)
+                .HasColumnType("decimal(18, 2)")
+                .HasColumnName("unit_cost");
+
             entity.HasOne(d => d.Order).WithMany(p => p.OrderDetails)
                 .HasForeignKey(d => d.OrderId)
                 .HasConstraintName("FK_OrderDetails_Orders");

@@ -59,6 +59,7 @@ export interface OrderDetail {
   productId: number;
   quantity: number;
   unitPrice: number;
+  unitCost: number;
   taxAmount: number;
   subtotal: number;
   product?: Pick<Product, 'productId' | 'sku' | 'barcode' | 'name'> | null;
@@ -145,4 +146,37 @@ export interface CreatePurchaseDto {
   sectionId: number;
   observations?: string;
   details: CreatePurchaseDetailDto[];
+}
+
+export interface DashboardSummary {
+  costValue: number;
+  saleValue: number;
+  potentialProfit: number;
+  lowStockCount: number;
+  outOfStockCount: number;
+  todaySalesTotal: number;
+  todayOrdersCount: number;
+}
+
+export interface SalesTrendPoint {
+  date: string;
+  total: number;
+}
+
+export interface ProfitTrendPoint {
+  date: string;
+  sales: number;
+  cost: number;
+  profit: number;
+}
+
+export interface LowStockItem {
+  inventoryId: number;
+  productId: number;
+  name: string;
+  sku: string;
+  barcode?: string | null;
+  category?: string | null;
+  currentStock: number;
+  minStock: number;
 }
