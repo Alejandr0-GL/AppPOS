@@ -229,10 +229,8 @@ namespace AppPOS.Api.Controllers
 
             var endExclusive = resolvedEnd.AddDays(1);
 
-            // Reglas de utilidad neta real:
-            // - Producto/insumo: base = UnitPrice - UnitCost; comisión = base * %; neto = base - comisión.
-            // - Servicio/mano de obra: base = UnitPrice; comisión = base * %; neto = base - comisión.
-            // Sin técnico asignado no se causa comisión.
+            // Comisión y ganancia local se leen congeladas por línea (no se recalculan con el producto actual).
+            // El costo de reposición sí se consulta actual: productos usan el costo congelado y servicios el costo actual.
             var rows = await (
                 from detail in _context.OrderDetails.AsNoTracking()
                 join order in _context.Orders.AsNoTracking() on detail.OrderId equals order.OrderId
@@ -247,10 +245,9 @@ namespace AppPOS.Api.Controllers
                     detail.UnitPrice,
                     detail.UnitCost,
                     detail.Quantity,
-                    detail.EmployeeId,
+                    detail.CommissionAmount,
+                    detail.LocalProfitAmount,
                     product.IsService,
-                    product.EmployeeCommissionPercentage,
-                    product.BusinessProfitPercentage,
                     product.PurchasePrice
                 }).ToListAsync();
 
@@ -267,25 +264,16 @@ namespace AppPOS.Api.Controllers
 
                         foreach (var row in group)
                         {
-                            // La comisión sale exclusivamente del producto y requiere técnico asignado.
-                            var commissionPercentage = row.EmployeeId.HasValue
-                                ? row.EmployeeCommissionPercentage
-                                : 0m;
-
                             // Servicios: costo de insumo ACTUAL del producto. Productos: costo congelado (o actual si no existe).
                             var replacementCost = row.IsService
                                 ? row.PurchasePrice
                                 : (row.UnitCost > 0m ? row.UnitCost : row.PurchasePrice);
 
-                            var baseUnit = Math.Max(0m, row.UnitPrice - replacementCost);
-
-                            var commissionUnit = baseUnit * (commissionPercentage / 100m);
-                            var localProfitUnit = baseUnit * (row.BusinessProfitPercentage / 100m);
-
                             sales += row.UnitPrice * row.Quantity;
                             cost += replacementCost * row.Quantity;
-                            commission += commissionUnit * row.Quantity;
-                            profit += localProfitUnit * row.Quantity;
+                            // Comisión y ganancia local congeladas al momento de la venta (por unidad).
+                            commission += row.CommissionAmount * row.Quantity;
+                            profit += row.LocalProfitAmount * row.Quantity;
                         }
 
                         return new

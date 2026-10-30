@@ -293,9 +293,33 @@ namespace AppPOS.Api.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("OrderDetailId"));
 
+                    b.Property<decimal>("AppliedBusinessProfitPercentage")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(5, 2)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("applied_business_profit_percentage");
+
+                    b.Property<decimal>("AppliedCommissionPercentage")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(5, 2)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("applied_commission_percentage");
+
+                    b.Property<decimal>("CommissionAmount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18, 2)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("commission_amount");
+
                     b.Property<int?>("EmployeeId")
                         .HasColumnType("int")
                         .HasColumnName("employee_id");
+
+                    b.Property<decimal>("LocalProfitAmount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18, 2)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("local_profit_amount");
 
                     b.Property<int>("OrderId")
                         .HasColumnType("int")

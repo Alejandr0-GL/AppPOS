@@ -151,6 +151,10 @@ namespace AppPOS.Api.Controllers
                         detail.UnitPrice,
                         detail.UnitCost,
                         detail.EmployeeId,
+                        detail.AppliedCommissionPercentage,
+                        detail.CommissionAmount,
+                        detail.AppliedBusinessProfitPercentage,
+                        detail.LocalProfitAmount,
                         Employee = detail.Employee == null
                             ? null
                             : new { detail.Employee.EmployeeId, detail.Employee.Name },
@@ -266,6 +270,15 @@ namespace AppPOS.Api.Controllers
                     decimal lineSubtotal = lineBase + calculatedTax;
                     grandTotal += lineSubtotal;
 
+                    // Congelar la comisión al momento de la venta (por unidad).
+                    var appliedCommissionPercentage = item.EmployeeId.HasValue
+                        ? product.EmployeeCommissionPercentage
+                        : 0m;
+
+                    var commissionBase = Math.Max(0m, unitPrice - product.PurchasePrice);
+                    var commissionAmount = commissionBase * (appliedCommissionPercentage / 100m);
+                    var localProfitAmount = commissionBase * (product.BusinessProfitPercentage / 100m);
+
                     orderDetailsToInsert.Add(new OrderDetail
                     {
                         ProductId = item.ProductId,
@@ -273,6 +286,10 @@ namespace AppPOS.Api.Controllers
                         UnitPrice = unitPrice,
                         UnitCost = product.PurchasePrice,
                         EmployeeId = item.EmployeeId,
+                        AppliedCommissionPercentage = appliedCommissionPercentage,
+                        CommissionAmount = commissionAmount,
+                        AppliedBusinessProfitPercentage = product.BusinessProfitPercentage,
+                        LocalProfitAmount = localProfitAmount,
                         TaxAmount = calculatedTax,
                         Subtotal = lineSubtotal
                     });

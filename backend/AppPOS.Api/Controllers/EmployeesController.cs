@@ -169,28 +169,18 @@ namespace AppPOS.Api.Controllers
                     product.IsService,
                     detail.Quantity,
                     detail.UnitPrice,
-                    detail.UnitCost,
-                    product.EmployeeCommissionPercentage,
-                    product.BusinessProfitPercentage,
-                    product.PurchasePrice,
+                    detail.AppliedCommissionPercentage,
+                    detail.CommissionAmount,
+                    detail.AppliedBusinessProfitPercentage,
+                    detail.LocalProfitAmount,
                     CustomerName = customer.Name
                 }).ToListAsync();
 
             var items = rows
                 .Select(row =>
                 {
-                    // La comisión depende exclusivamente del producto vendido.
-                    var percentage = row.EmployeeCommissionPercentage;
-
-                    // Servicios: costo de insumo ACTUAL del producto. Productos: costo congelado (o actual si no existe).
-                    var replacementCost = row.IsService
-                        ? row.PurchasePrice
-                        : (row.UnitCost > 0m ? row.UnitCost : row.PurchasePrice);
-
-                    var baseAmount = Math.Max(0m, row.UnitPrice - replacementCost);
-
-                    var commission = baseAmount * (percentage / 100m) * row.Quantity;
-                    var localProfit = baseAmount * (row.BusinessProfitPercentage / 100m) * row.Quantity;
+                    // Comisión y ganancia local congeladas al momento de la venta.
+                    var percentage = row.AppliedCommissionPercentage;
 
                     return new EmployeeCommissionItemDto
                     {
@@ -204,9 +194,9 @@ namespace AppPOS.Api.Controllers
                         Quantity = row.Quantity,
                         TotalSale = row.UnitPrice * row.Quantity,
                         CommissionPercentage = percentage,
-                        CommissionAmount = Math.Round(commission, 2),
-                        BusinessProfitPercentage = row.BusinessProfitPercentage,
-                        LocalProfitAmount = Math.Round(localProfit, 2)
+                        CommissionAmount = Math.Round(row.CommissionAmount * row.Quantity, 2),
+                        BusinessProfitPercentage = row.AppliedBusinessProfitPercentage,
+                        LocalProfitAmount = Math.Round(row.LocalProfitAmount * row.Quantity, 2)
                     };
                 })
                 .OrderBy(item => item.Date)
