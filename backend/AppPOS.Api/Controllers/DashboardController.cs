@@ -30,10 +30,10 @@ namespace AppPOS.Api.Controllers
                 return NotFound(new { message = "La unidad de negocio no existe." });
             }
 
-            // Solo productos activos con inventario en la unidad seleccionada.
+            // Solo productos activos con inventario en la unidad seleccionada (los servicios no tienen stock).
             var inventories = _context.Inventories
                 .AsNoTracking()
-                .Where(inventory => inventory.SectionId == sectionId && inventory.Product.IsActive);
+                .Where(inventory => inventory.SectionId == sectionId && !inventory.Product.IsService && inventory.Product.IsActive);
 
             var today = DateTime.Today;
             var tomorrow = today.AddDays(1);
@@ -78,6 +78,7 @@ namespace AppPOS.Api.Controllers
             var lowStock = await _context.Inventories
                 .AsNoTracking()
                 .Where(inventory => inventory.SectionId == sectionId
+                    && !inventory.Product.IsService
                     && inventory.Product.IsActive
                     && inventory.CurrentStock <= inventory.MinStock)
                 .OrderBy(inventory => inventory.CurrentStock)
@@ -180,7 +181,7 @@ namespace AppPOS.Api.Controllers
 
             var distribution = await _context.Inventories
                 .AsNoTracking()
-                .Where(inventory => inventory.SectionId == sectionId && inventory.Product.IsActive)
+                .Where(inventory => inventory.SectionId == sectionId && !inventory.Product.IsService && inventory.Product.IsActive)
                 .GroupBy(inventory => inventory.Product.Category != null ? inventory.Product.Category.Name : "Sin categoría")
                 .Select(group => new CategoryDistributionItemDto
                 {
@@ -228,10 +229,14 @@ namespace AppPOS.Api.Controllers
 
             var endExclusive = resolvedEnd.AddDays(1);
 
-            // El costo congelado en el detalle evita recalcular con el precio de compra actual.
-            var daily = await (
+            // Reglas de utilidad neta real:
+            // - Producto/insumo: base = UnitPrice - UnitCost; comisión = base * %; neto = base - comisión.
+            // - Servicio/mano de obra: base = UnitPrice; comisión = base * %; neto = base - comisión.
+            // Sin técnico asignado no se causa comisión.
+            var rows = await (
                 from detail in _context.OrderDetails.AsNoTracking()
                 join order in _context.Orders.AsNoTracking() on detail.OrderId equals order.OrderId
+                join product in _context.Products.AsNoTracking() on detail.ProductId equals product.ProductId
                 where order.SectionId == sectionId
                     && order.Status == "COMPLETED"
                     && order.Date >= resolvedStart
@@ -241,18 +246,56 @@ namespace AppPOS.Api.Controllers
                     Date = order.Date.Date,
                     detail.UnitPrice,
                     detail.UnitCost,
-                    detail.Quantity
-                } into row
-                group row by row.Date into grouped
-                select new
-                {
-                    Date = grouped.Key,
-                    Sales = grouped.Sum(item => item.UnitPrice * item.Quantity),
-                    Cost = grouped.Sum(item => item.UnitCost * item.Quantity)
-                })
-                .ToListAsync();
+                    detail.Quantity,
+                    detail.EmployeeId,
+                    product.IsService,
+                    product.EmployeeCommissionPercentage,
+                    product.BusinessProfitPercentage,
+                    product.PurchasePrice
+                }).ToListAsync();
 
-            var byDay = daily.ToDictionary(item => item.Date);
+            var byDay = rows
+                .GroupBy(row => row.Date)
+                .ToDictionary(
+                    group => group.Key,
+                    group =>
+                    {
+                        decimal sales = 0m;
+                        decimal cost = 0m;
+                        decimal commission = 0m;
+                        decimal profit = 0m;
+
+                        foreach (var row in group)
+                        {
+                            // La comisión sale exclusivamente del producto y requiere técnico asignado.
+                            var commissionPercentage = row.EmployeeId.HasValue
+                                ? row.EmployeeCommissionPercentage
+                                : 0m;
+
+                            // Servicios: costo de insumo ACTUAL del producto. Productos: costo congelado (o actual si no existe).
+                            var replacementCost = row.IsService
+                                ? row.PurchasePrice
+                                : (row.UnitCost > 0m ? row.UnitCost : row.PurchasePrice);
+
+                            var baseUnit = Math.Max(0m, row.UnitPrice - replacementCost);
+
+                            var commissionUnit = baseUnit * (commissionPercentage / 100m);
+                            var localProfitUnit = baseUnit * (row.BusinessProfitPercentage / 100m);
+
+                            sales += row.UnitPrice * row.Quantity;
+                            cost += replacementCost * row.Quantity;
+                            commission += commissionUnit * row.Quantity;
+                            profit += localProfitUnit * row.Quantity;
+                        }
+
+                        return new
+                        {
+                            Sales = Math.Round(sales, 2),
+                            Cost = Math.Round(cost, 2),
+                            Commission = Math.Round(commission, 2),
+                            Profit = Math.Round(profit, 2)
+                        };
+                    });
 
             // Se devuelve cada día del rango, con ceros cuando no hubo ventas.
             var trend = Enumerable.Range(0, totalDays)
@@ -262,7 +305,7 @@ namespace AppPOS.Api.Controllers
 
                     if (!byDay.TryGetValue(date, out var day))
                     {
-                        return new ProfitTrendPointDto { Date = date, Sales = 0m, Cost = 0m, Profit = 0m };
+                        return new ProfitTrendPointDto { Date = date, Sales = 0m, Cost = 0m, Commission = 0m, Profit = 0m };
                     }
 
                     return new ProfitTrendPointDto
@@ -270,7 +313,8 @@ namespace AppPOS.Api.Controllers
                         Date = date,
                         Sales = day.Sales,
                         Cost = day.Cost,
-                        Profit = day.Sales - day.Cost
+                        Commission = day.Commission,
+                        Profit = day.Profit
                     };
                 })
                 .ToList();

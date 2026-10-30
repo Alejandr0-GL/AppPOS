@@ -128,6 +128,53 @@ namespace AppPOS.Api.Migrations
                     b.ToTable("Customers");
                 });
 
+            modelBuilder.Entity("AppPOS.Api.Models.Employee", b =>
+                {
+                    b.Property<int>("EmployeeId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("employee_id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("EmployeeId"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("(sysdatetime())");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("phone");
+
+                    b.Property<string>("Role")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("role");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("EmployeeId")
+                        .HasName("PK_Employees");
+
+                    b.ToTable("Employees");
+                });
+
             modelBuilder.Entity("AppPOS.Api.Models.Inventory", b =>
                 {
                     b.Property<int>("InventoryId")
@@ -246,6 +293,10 @@ namespace AppPOS.Api.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("OrderDetailId"));
 
+                    b.Property<int?>("EmployeeId")
+                        .HasColumnType("int")
+                        .HasColumnName("employee_id");
+
                     b.Property<int>("OrderId")
                         .HasColumnType("int")
                         .HasColumnName("order_id");
@@ -277,6 +328,8 @@ namespace AppPOS.Api.Migrations
                     b.HasKey("OrderDetailId")
                         .HasName("PK__OrderDet__3C5A40804A35F689");
 
+                    b.HasIndex("EmployeeId");
+
                     b.HasIndex("OrderId");
 
                     b.ToTable("OrderDetails");
@@ -296,6 +349,12 @@ namespace AppPOS.Api.Migrations
                         .HasColumnType("nvarchar(50)")
                         .HasColumnName("barcode");
 
+                    b.Property<decimal>("BusinessProfitPercentage")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(5, 2)")
+                        .HasDefaultValue(100m)
+                        .HasColumnName("business_profit_percentage");
+
                     b.Property<int>("CategoryId")
                         .HasColumnType("int")
                         .HasColumnName("category_id");
@@ -311,6 +370,12 @@ namespace AppPOS.Api.Migrations
                         .HasColumnType("nvarchar(250)")
                         .HasColumnName("description");
 
+                    b.Property<decimal>("EmployeeCommissionPercentage")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(5, 2)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("employee_commission_percentage");
+
                     b.Property<string>("ImageUrl")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)")
@@ -321,6 +386,12 @@ namespace AppPOS.Api.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(true)
                         .HasColumnName("is_active");
+
+                    b.Property<bool>("IsService")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_service");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -733,12 +804,19 @@ namespace AppPOS.Api.Migrations
 
             modelBuilder.Entity("AppPOS.Api.Models.OrderDetail", b =>
                 {
+                    b.HasOne("AppPOS.Api.Models.Employee", "Employee")
+                        .WithMany("OrderDetails")
+                        .HasForeignKey("EmployeeId")
+                        .HasConstraintName("FK_OrderDetails_Employees");
+
                     b.HasOne("AppPOS.Api.Models.Order", "Order")
                         .WithMany("OrderDetails")
                         .HasForeignKey("OrderId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("FK_OrderDetails_Orders");
+
+                    b.Navigation("Employee");
 
                     b.Navigation("Order");
                 });
@@ -844,6 +922,11 @@ namespace AppPOS.Api.Migrations
             modelBuilder.Entity("AppPOS.Api.Models.Customer", b =>
                 {
                     b.Navigation("Orders");
+                });
+
+            modelBuilder.Entity("AppPOS.Api.Models.Employee", b =>
+                {
+                    b.Navigation("OrderDetails");
                 });
 
             modelBuilder.Entity("AppPOS.Api.Models.Order", b =>

@@ -17,18 +17,34 @@ namespace AppPOS.Api.Controllers
         }
         // GET: api/Products?sectionId=1&search=oil&includeInactive=false
         [HttpGet]
-        public async Task<IActionResult> GetProducts([FromQuery] int? sectionId, [FromQuery] string? search, [FromQuery] bool includeInactive = false)
+        public async Task<IActionResult> GetProducts([FromQuery] int? sectionId, [FromQuery] string? search, [FromQuery] bool includeInactive = false, [FromQuery] string? status = null)
         {
             var query = _context.Products.AsQueryable();
 
-            if (!includeInactive)
+            if (!string.IsNullOrWhiteSpace(status))
+            {
+                var normalizedStatus = status.Trim().ToLowerInvariant();
+
+                if (normalizedStatus == "inactive")
+                {
+                    query = query.Where(product => !product.IsActive);
+                }
+                else if (normalizedStatus != "all")
+                {
+                    query = query.Where(product => product.IsActive);
+                }
+            }
+            else if (!includeInactive)
             {
                 query = query.Where(product => product.IsActive);
             }
 
             if (sectionId.HasValue)
             {
-                query = query.Where(product => product.Inventories.Any(inventory => inventory.SectionId == sectionId.Value));
+                // Los productos se asocian a la unidad por inventario; los servicios por su categoría.
+                query = query.Where(product =>
+                    product.Inventories.Any(inventory => inventory.SectionId == sectionId.Value)
+                    || (product.IsService && product.Category != null && product.Category.SectionId == sectionId.Value));
             }
 
             if (!string.IsNullOrWhiteSpace(search))
@@ -69,6 +85,9 @@ namespace AppPOS.Api.Controllers
             if (!string.IsNullOrWhiteSpace(dto.Barcode) && await _context.Products.AnyAsync(product => product.Barcode == dto.Barcode))
                 return Conflict(new { message = "El código de barras ya está registrado." });
 
+            var percentagesError = ValidatePercentages(dto.EmployeeCommissionPercentage, dto.BusinessProfitPercentage);
+            if (percentagesError != null) return BadRequest(new { message = percentagesError });
+
             await using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
@@ -83,22 +102,30 @@ namespace AppPOS.Api.Controllers
                     PurchasePrice = dto.PurchasePrice,
                     SalePrice = dto.SalePrice,
                     IsActive = true,
+                    IsService = dto.IsService,
+                    EmployeeCommissionPercentage = dto.EmployeeCommissionPercentage,
+                    BusinessProfitPercentage = dto.BusinessProfitPercentage,
                     CreatedAt = DateTime.Now
                 };
 
                 _context.Products.Add(product);
                 await _context.SaveChangesAsync();
 
-                _context.Inventories.Add(new Inventory
+                // Los servicios no manejan inventario: se venden sin descontar stock.
+                if (!dto.IsService)
                 {
-                    ProductId = product.ProductId,
-                    SectionId = dto.SectionId,
-                    CurrentStock = dto.InitialStock,
-                    MinStock = dto.MinStock,
-                    UpdatedAt = DateTime.Now
-                });
+                    _context.Inventories.Add(new Inventory
+                    {
+                        ProductId = product.ProductId,
+                        SectionId = dto.SectionId,
+                        CurrentStock = dto.InitialStock,
+                        MinStock = dto.MinStock,
+                        UpdatedAt = DateTime.Now
+                    });
 
-                await _context.SaveChangesAsync();
+                    await _context.SaveChangesAsync();
+                }
+
                 await transaction.CommitAsync();
 
                 return CreatedAtAction(nameof(GetProduct), new { id = product.ProductId }, new { productId = product.ProductId, message = "Producto creado correctamente." });
@@ -120,11 +147,18 @@ namespace AppPOS.Api.Controllers
             var validationError = await ValidateProduct(dto.Name, dto.Sku, dto.Barcode, dto.CategoryId, dto.TaxId, dto.PurchasePrice, dto.SalePrice, null, null, null);
             if (validationError != null) return BadRequest(new { message = validationError });
 
+            var percentagesError = ValidatePercentages(dto.EmployeeCommissionPercentage, dto.BusinessProfitPercentage);
+            if (percentagesError != null) return BadRequest(new { message = percentagesError });
+
             var categorySectionId = await _context.Categories
                 .Where(category => category.CategoryId == dto.CategoryId)
                 .Select(category => (int?)category.SectionId)
                 .FirstOrDefaultAsync();
-            if (!categorySectionId.HasValue || !await _context.Inventories.AnyAsync(inventory => inventory.ProductId == id && inventory.SectionId == categorySectionId.Value))
+            if (!categorySectionId.HasValue)
+                return BadRequest(new { message = "La categoría seleccionada no pertenece a una unidad de negocio." });
+
+            // Los servicios no tienen inventario; los productos deben tener su fila en la unidad de la categoría.
+            if (!dto.IsService && !await _context.Inventories.AnyAsync(inventory => inventory.ProductId == id && inventory.SectionId == categorySectionId.Value))
                 return BadRequest(new { message = "La categoría seleccionada no pertenece a una unidad de negocio asociada al producto." });
 
             if (await _context.Products.AnyAsync(item => item.ProductId != id && item.Sku == dto.Sku))
@@ -142,6 +176,9 @@ namespace AppPOS.Api.Controllers
             product.PurchasePrice = dto.PurchasePrice;
             product.SalePrice = dto.SalePrice;
             product.IsActive = dto.IsActive;
+            product.IsService = dto.IsService;
+            product.EmployeeCommissionPercentage = dto.EmployeeCommissionPercentage;
+            product.BusinessProfitPercentage = dto.BusinessProfitPercentage;
             product.UpdatedAt = DateTime.Now;
 
             try
@@ -189,7 +226,11 @@ namespace AppPOS.Api.Controllers
                     product.PurchasePrice,
                     product.SalePrice,
                     product.IsActive,
+                    product.IsService,
+                    product.EmployeeCommissionPercentage,
+                    product.BusinessProfitPercentage,
                     product.CategoryId,
+                    CategorySectionId = product.Category == null ? (int?)null : product.Category.SectionId,
                     Category = product.Category == null ? null : new { product.Category.CategoryId, product.Category.Name },
                     product.TaxId,
                     Tax = product.Tax == null ? null : new { product.Tax.TaxId, product.Tax.Name, product.Tax.Percentage },
@@ -198,6 +239,17 @@ namespace AppPOS.Api.Controllers
                         .Select(inventory => new { inventory.InventoryId, inventory.SectionId, inventory.Section.Name, inventory.CurrentStock, inventory.MinStock })
                         .ToList()
                 });
+        }
+
+        private static string? ValidatePercentages(decimal employeeCommissionPercentage, decimal businessProfitPercentage)
+        {
+            if (employeeCommissionPercentage < 0 || employeeCommissionPercentage > 100)
+                return "El porcentaje de comisión del empleado debe estar entre 0 y 100.";
+            if (businessProfitPercentage < 0 || businessProfitPercentage > 100)
+                return "El porcentaje de ganancia local debe estar entre 0 y 100.";
+            if (Math.Round(employeeCommissionPercentage + businessProfitPercentage, 2) != 100m)
+                return "La suma del % de comisión del empleado y el % de ganancia local debe ser 100.";
+            return null;
         }
 
         private async Task<string?> ValidateProduct(string name, string sku, string? barcode, int categoryId, int taxId, decimal purchasePrice, decimal salePrice, int? sectionId, int? initialStock, int? minStock)

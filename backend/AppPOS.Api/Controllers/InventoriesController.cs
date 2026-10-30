@@ -30,7 +30,7 @@ namespace AppPOS.Api.Controllers
             }
 
             var query = _context.Inventories
-                .Where(i => i.SectionId == sectionId)
+                .Where(i => i.SectionId == sectionId && !i.Product.IsService)
                 .AsQueryable();
 
             if (productId.HasValue)

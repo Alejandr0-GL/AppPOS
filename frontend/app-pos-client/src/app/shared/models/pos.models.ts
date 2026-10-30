@@ -9,6 +9,9 @@ export interface Product {
   taxId: number;
   categoryId: number;
   category?: { categoryId: number; name: string } | null;
+  isService: boolean;
+  employeeCommissionPercentage: number;
+  businessProfitPercentage: number;
 }
 
 export interface Customer {
@@ -28,6 +31,7 @@ export interface CreateOrderDetailDto {
   sectionId: number;
   quantity: number;
   unitPrice: number;
+  employeeId?: number | null;
 }
 
 export interface CreateOrderDto {
@@ -60,6 +64,8 @@ export interface OrderDetail {
   quantity: number;
   unitPrice: number;
   unitCost: number;
+  employeeId?: number | null;
+  employee?: { employeeId: number; name: string } | null;
   taxAmount: number;
   subtotal: number;
   product?: Pick<Product, 'productId' | 'sku' | 'barcode' | 'name'> | null;
@@ -94,6 +100,7 @@ export interface StockMovement {
 
 export interface ProductCatalogItem extends Product {
   isActive: boolean;
+  categorySectionId?: number | null;
   category?: { categoryId: number; name: string } | null;
   tax?: { taxId: number; name: string; percentage: number } | null;
   sections: Array<{ inventoryId: number; sectionId: number; name: string; currentStock: number; minStock: number }>;
@@ -167,7 +174,40 @@ export interface ProfitTrendPoint {
   date: string;
   sales: number;
   cost: number;
+  commission: number;
   profit: number;
+}
+
+export interface Employee {
+  employeeId: number;
+  name: string;
+  phone?: string | null;
+  role?: string | null;
+  isActive: boolean;
+}
+
+export interface EmployeeCommissionItem {
+  orderId: number;
+  orderDetailId: number;
+  date: string;
+  itemName: string;
+  sku: string;
+  customerName: string;
+  isService: boolean;
+  quantity: number;
+  totalSale: number;
+  commissionPercentage: number;
+  commissionAmount: number;
+}
+
+export interface EmployeeCommissionReport {
+  employeeId: number;
+  employeeName: string;
+  startDate: string;
+  endDate: string;
+  totalSales: number;
+  totalCommission: number;
+  items: EmployeeCommissionItem[];
 }
 
 export interface LowStockItem {

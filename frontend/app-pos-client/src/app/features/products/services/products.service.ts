@@ -32,6 +32,9 @@ export interface CreateProductRequest {
   sectionId: number;
   initialStock: number;
   minStock: number;
+  isService: boolean;
+  employeeCommissionPercentage: number;
+  businessProfitPercentage: number;
 }
 
 export interface UpdateProductRequest extends Omit<CreateProductRequest, 'sectionId' | 'initialStock' | 'minStock'> {
@@ -43,11 +46,11 @@ export class ProductsService {
   private readonly http = inject(HttpClient);
   private readonly apiUrl = 'https://localhost:7122/api';
 
-  getProducts(sectionId?: number, search?: string, includeInactive = true): Observable<ProductCatalogItem[]> {
+  getProducts(sectionId?: number, search?: string, status: 'active' | 'inactive' | 'all' = 'active'): Observable<ProductCatalogItem[]> {
     const params = new URLSearchParams();
     if (sectionId) params.set('sectionId', sectionId.toString());
     if (search) params.set('search', search);
-    params.set('includeInactive', includeInactive.toString());
+    params.set('status', status);
     return this.http.get<ProductCatalogItem[]>(`${this.apiUrl}/Products?${params.toString()}`);
   }
 

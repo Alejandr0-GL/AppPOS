@@ -13,6 +13,9 @@ namespace AppPOS.Api.DTOs
         public int SectionId { get; set; }
         public int InitialStock { get; set; }
         public int MinStock { get; set; } = 5;
+        public bool IsService { get; set; }
+        public decimal EmployeeCommissionPercentage { get; set; }
+        public decimal BusinessProfitPercentage { get; set; } = 100m;
     }
 
     public class UpdateProductDto
@@ -26,5 +29,8 @@ namespace AppPOS.Api.DTOs
         public decimal PurchasePrice { get; set; }
         public decimal SalePrice { get; set; }
         public bool IsActive { get; set; }
+        public bool IsService { get; set; }
+        public decimal EmployeeCommissionPercentage { get; set; }
+        public decimal BusinessProfitPercentage { get; set; } = 100m;
     }
 }

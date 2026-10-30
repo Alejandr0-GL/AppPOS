@@ -133,7 +133,7 @@ import { DashboardService } from './services/dashboard.service';
           <div class="mb-4 flex flex-wrap items-start justify-between gap-2">
             <div>
               <h3 class="text-sm font-bold text-slate-700">Ganancias a través del tiempo</h3>
-              <p class="text-xs text-slate-400">Ventas, costo y ganancia del período</p>
+              <p class="text-xs text-slate-400">Ventas, costo, comisiones y ganancia neta real</p>
             </div>
             <span class="rounded-full bg-emerald-100 px-2 py-1 text-xs font-bold text-emerald-700">{{ profitTrendTotal() | currency:'COP':'symbol':'1.0-0' }}</span>
           </div>
@@ -296,7 +296,21 @@ export class DashboardComponent {
           tension: 0.35
         },
         {
-          label: 'Ganancia',
+          label: 'Comisión',
+          data: points.map(point => point.commission),
+          borderColor: '#8b5cf6',
+          backgroundColor: 'rgba(139, 92, 246, 0.10)',
+          pointBackgroundColor: '#8b5cf6',
+          pointBorderColor: '#ffffff',
+          pointRadius: 2,
+          pointHoverRadius: 5,
+          borderWidth: 2,
+          borderDash: [5, 4],
+          fill: false,
+          tension: 0.35
+        },
+        {
+          label: 'Ganancia neta',
           data: points.map(point => point.profit),
           borderColor: '#10b981',
           backgroundColor: 'rgba(16, 185, 129, 0.16)',

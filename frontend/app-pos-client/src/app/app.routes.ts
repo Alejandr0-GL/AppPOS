@@ -8,6 +8,7 @@ import { ProductsComponent } from './features/products/products';
 import { CustomersComponent } from './features/customers/customers';
 import { PurchasesComponent } from './features/purchases/purchases';
 import { SuppliersComponent } from './features/suppliers/suppliers';
+import { EmployeesComponent } from './features/employees/employees';
 
 export const routes: Routes = [
     {
@@ -22,6 +23,7 @@ export const routes: Routes = [
       ,{ path: 'products', component: ProductsComponent },
       { path: 'purchases', component: PurchasesComponent },
       { path: 'suppliers', component: SuppliersComponent },
+      { path: 'employees', component: EmployeesComponent },
       { path: 'customers', component: CustomersComponent }
     ] 
   }
