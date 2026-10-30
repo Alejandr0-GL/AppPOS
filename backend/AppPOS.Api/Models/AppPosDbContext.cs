@@ -216,6 +216,22 @@ public partial class AppPosDbContext : DbContext
             entity.Property(e => e.OrderId).HasColumnName("order_id");
             entity.Property(e => e.ProductId).HasColumnName("product_id");
             entity.Property(e => e.EmployeeId).HasColumnName("employee_id");
+            entity.Property(e => e.AppliedCommissionPercentage)
+                .HasDefaultValue(0m)
+                .HasColumnType("decimal(5, 2)")
+                .HasColumnName("applied_commission_percentage");
+            entity.Property(e => e.CommissionAmount)
+                .HasDefaultValue(0m)
+                .HasColumnType("decimal(18, 2)")
+                .HasColumnName("commission_amount");
+            entity.Property(e => e.AppliedBusinessProfitPercentage)
+                .HasDefaultValue(0m)
+                .HasColumnType("decimal(5, 2)")
+                .HasColumnName("applied_business_profit_percentage");
+            entity.Property(e => e.LocalProfitAmount)
+                .HasDefaultValue(0m)
+                .HasColumnType("decimal(18, 2)")
+                .HasColumnName("local_profit_amount");
             entity.Property(e => e.Quantity).HasColumnName("quantity");
             entity.Property(e => e.Subtotal)
                 .HasColumnType("decimal(18, 2)")

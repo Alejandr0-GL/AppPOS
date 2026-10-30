@@ -66,6 +66,10 @@ export interface OrderDetail {
   unitCost: number;
   employeeId?: number | null;
   employee?: { employeeId: number; name: string } | null;
+  appliedCommissionPercentage?: number;
+  commissionAmount?: number;
+  appliedBusinessProfitPercentage?: number;
+  localProfitAmount?: number;
   taxAmount: number;
   subtotal: number;
   product?: Pick<Product, 'productId' | 'sku' | 'barcode' | 'name'> | null;

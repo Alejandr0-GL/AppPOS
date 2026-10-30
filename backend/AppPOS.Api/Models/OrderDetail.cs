@@ -19,6 +19,14 @@ public partial class OrderDetail
 
     public int? EmployeeId { get; set; }
 
+    public decimal AppliedCommissionPercentage { get; set; }
+
+    public decimal CommissionAmount { get; set; }
+
+    public decimal AppliedBusinessProfitPercentage { get; set; }
+
+    public decimal LocalProfitAmount { get; set; }
+
     public decimal TaxAmount { get; set; }
 
     public decimal Subtotal { get; set; }
