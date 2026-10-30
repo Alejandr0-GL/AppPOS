@@ -31,6 +31,7 @@ namespace AppPOS.Api.DTOs
         public DateTime Date { get; set; }
         public decimal Sales { get; set; }
         public decimal Cost { get; set; }
+        public decimal Commission { get; set; }
         public decimal Profit { get; set; }
     }
 

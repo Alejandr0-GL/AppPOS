@@ -26,6 +26,12 @@ public partial class Product
 
     public bool IsActive { get; set; }
 
+    public bool IsService { get; set; }
+
+    public decimal EmployeeCommissionPercentage { get; set; }
+
+    public decimal BusinessProfitPercentage { get; set; } = 100m;
+
     public DateTime CreatedAt { get; set; }
 
     public DateTime? UpdatedAt { get; set; }

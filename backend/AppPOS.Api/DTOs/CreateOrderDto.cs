@@ -7,6 +7,7 @@
         public int Quantity { get; set; }
         public decimal UnitPrice { get; set; }
         public decimal TaxAmount { get; set; }
+        public int? EmployeeId { get; set; } // Técnico/empleado asignado (opcional)
     }
 
     public class CreateOrderDto

@@ -1,6 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { map, Observable } from 'rxjs';
+import { Observable } from 'rxjs';
 import { Product, Customer, CreateOrderDto, Order, OrderSummary, Inventory, StockMovement } from '../../../shared/models/pos.models';
 
 export interface Section {
@@ -17,18 +17,16 @@ export class PosService {
   private apiUrl = 'https://localhost:7122/api';
 
   selectedSectionId = signal<number | null>(null);
-  cartItems = signal<Array<{ product: Product; quantity: number; sectionId: number }>>([]);
+  cartItems = signal<Array<{ product: Product; quantity: number; sectionId: number; employeeId?: number | null }>>([]);
 
   // Obtener la lista de secciones
   getSections(): Observable<Section[]> {
     return this.http.get<Section[]>(`${this.apiUrl}/Sections`);
   }
 
-  // Obtener productos disponibles en una sección específica a través de Inventories
+  // Obtener productos/servicios activos de una sección (los servicios llegan por categoría)
   getProductsBySection(sectionId: number): Observable<Product[]> {
-    return this.http.get<any[]>(`${this.apiUrl}/Inventories?sectionId=${sectionId}`).pipe(
-      map(inventories => inventories.map(item => item.product))
-    );
+    return this.http.get<Product[]>(`${this.apiUrl}/Products?sectionId=${sectionId}&includeInactive=false`);
   }
 
   // Búsqueda dinámica de clientes por Nombre o Número de Documento

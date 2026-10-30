@@ -19,6 +19,8 @@ public partial class AppPosDbContext : DbContext
 
     public virtual DbSet<Customer> Customers { get; set; }
 
+    public virtual DbSet<Employee> Employees { get; set; }
+
     public virtual DbSet<Inventory> Inventories { get; set; }
 
     public virtual DbSet<Order> Orders { get; set; }
@@ -106,6 +108,29 @@ public partial class AppPosDbContext : DbContext
                 .HasColumnName("phone");
         });
 
+        modelBuilder.Entity<Employee>(entity =>
+        {
+            entity.HasKey(e => e.EmployeeId).HasName("PK_Employees");
+
+            entity.Property(e => e.EmployeeId).HasColumnName("employee_id");
+            entity.Property(e => e.Name)
+                .HasMaxLength(100)
+                .HasColumnName("name");
+            entity.Property(e => e.Phone)
+                .HasMaxLength(20)
+                .HasColumnName("phone");
+            entity.Property(e => e.Role)
+                .HasMaxLength(50)
+                .HasColumnName("role");
+            entity.Property(e => e.IsActive)
+                .HasDefaultValue(true)
+                .HasColumnName("is_active");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("(sysdatetime())")
+                .HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
+        });
+
         modelBuilder.Entity<Inventory>(entity =>
         {
             entity.HasKey(e => e.InventoryId).HasName("PK__Inventor__B59ACC49F399EAE7");
@@ -190,6 +215,7 @@ public partial class AppPosDbContext : DbContext
             entity.Property(e => e.OrderDetailId).HasColumnName("order_detail_id");
             entity.Property(e => e.OrderId).HasColumnName("order_id");
             entity.Property(e => e.ProductId).HasColumnName("product_id");
+            entity.Property(e => e.EmployeeId).HasColumnName("employee_id");
             entity.Property(e => e.Quantity).HasColumnName("quantity");
             entity.Property(e => e.Subtotal)
                 .HasColumnType("decimal(18, 2)")
@@ -208,6 +234,11 @@ public partial class AppPosDbContext : DbContext
             entity.HasOne(d => d.Order).WithMany(p => p.OrderDetails)
                 .HasForeignKey(d => d.OrderId)
                 .HasConstraintName("FK_OrderDetails_Orders");
+
+            entity.HasOne(d => d.Employee).WithMany(p => p.OrderDetails)
+                .HasForeignKey(d => d.EmployeeId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_OrderDetails_Employees");
         });
 
         modelBuilder.Entity<Product>(entity =>
@@ -231,6 +262,17 @@ public partial class AppPosDbContext : DbContext
             entity.Property(e => e.IsActive)
                 .HasDefaultValue(true)
                 .HasColumnName("is_active");
+            entity.Property(e => e.IsService)
+                .HasDefaultValue(false)
+                .HasColumnName("is_service");
+            entity.Property(e => e.EmployeeCommissionPercentage)
+                .HasDefaultValue(0m)
+                .HasColumnType("decimal(5, 2)")
+                .HasColumnName("employee_commission_percentage");
+            entity.Property(e => e.BusinessProfitPercentage)
+                .HasDefaultValue(100m)
+                .HasColumnType("decimal(5, 2)")
+                .HasColumnName("business_profit_percentage");
             entity.Property(e => e.Name)
                 .HasMaxLength(100)
                 .HasColumnName("name");

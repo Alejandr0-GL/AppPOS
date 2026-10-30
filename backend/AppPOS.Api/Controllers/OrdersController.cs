@@ -150,6 +150,10 @@ namespace AppPOS.Api.Controllers
                         detail.Quantity,
                         detail.UnitPrice,
                         detail.UnitCost,
+                        detail.EmployeeId,
+                        Employee = detail.Employee == null
+                            ? null
+                            : new { detail.Employee.EmployeeId, detail.Employee.Name },
                         detail.TaxAmount,
                         detail.Subtotal,
                         Product = _context.Products
@@ -216,6 +220,26 @@ namespace AppPOS.Api.Controllers
                     .Where(p => productIds.Contains(p.ProductId))
                     .ToDictionaryAsync(p => p.ProductId);
 
+                var employeeIds = dto.Details
+                    .Where(detail => detail.EmployeeId.HasValue)
+                    .Select(detail => detail.EmployeeId!.Value)
+                    .Distinct()
+                    .ToList();
+
+                if (employeeIds.Count > 0)
+                {
+                    var activeEmployeeIds = await _context.Employees
+                        .Where(employee => employeeIds.Contains(employee.EmployeeId) && employee.IsActive)
+                        .Select(employee => employee.EmployeeId)
+                        .ToListAsync();
+
+                    var missingEmployeeIds = employeeIds.Except(activeEmployeeIds).ToList();
+                    if (missingEmployeeIds.Count > 0)
+                    {
+                        return BadRequest(new { message = $"Los siguientes empleados no existen o están inactivos: {string.Join(", ", missingEmployeeIds)}." });
+                    }
+                }
+
                 // Calcular los ítems y totales
                 decimal grandTotal = 0m;
                 var orderDetailsToInsert = new List<OrderDetail>();
@@ -248,6 +272,7 @@ namespace AppPOS.Api.Controllers
                         Quantity = item.Quantity,
                         UnitPrice = unitPrice,
                         UnitCost = product.PurchasePrice,
+                        EmployeeId = item.EmployeeId,
                         TaxAmount = calculatedTax,
                         Subtotal = lineSubtotal
                     });
@@ -277,14 +302,17 @@ namespace AppPOS.Api.Controllers
                     detail.OrderId = order.OrderId;
                     _context.OrderDetails.Add(detail);
 
-                    // Descontar stock
-                    await _stockService.DeductStockForSaleAsync(
-                        dto.UserId,
-                        detail.ProductId,
-                        dto.SectionId,
-                        detail.Quantity,
-                        $"Venta ({dto.InvoiceType}) - Orden #{order.OrderId}"
-                    );
+                    // Los servicios (mano de obra) no descuentan inventario.
+                    if (!products[detail.ProductId].IsService)
+                    {
+                        await _stockService.DeductStockForSaleAsync(
+                            dto.UserId,
+                            detail.ProductId,
+                            dto.SectionId,
+                            detail.Quantity,
+                            $"Venta ({dto.InvoiceType}) - Orden #{order.OrderId}"
+                        );
+                    }
                 }
 
                 await _context.SaveChangesAsync();
@@ -338,8 +366,17 @@ namespace AppPOS.Api.Controllers
                     return BadRequest(new { message = "Solo se pueden cancelar órdenes completadas o pendientes de envío electrónico." });
                 }
 
+                // Los servicios (mano de obra) no reponen inventario al anular.
+                var productIds = order.OrderDetails.Select(detail => detail.ProductId).Distinct().ToList();
+                var serviceProductIds = await _context.Products
+                    .Where(product => productIds.Contains(product.ProductId) && product.IsService)
+                    .Select(product => product.ProductId)
+                    .ToListAsync();
+
                 foreach (var detail in order.OrderDetails)
                 {
+                    if (serviceProductIds.Contains(detail.ProductId)) continue;
+
                     await _stockService.RestoreStockForSaleAsync(
                         dto.UserId,
                         detail.ProductId,

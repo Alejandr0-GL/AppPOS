@@ -17,9 +17,13 @@ public partial class OrderDetail
 
     public decimal UnitCost { get; set; }
 
+    public int? EmployeeId { get; set; }
+
     public decimal TaxAmount { get; set; }
 
     public decimal Subtotal { get; set; }
 
     public virtual Order Order { get; set; } = null!;
+
+    public virtual Employee? Employee { get; set; }
 }

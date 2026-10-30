@@ -3,8 +3,9 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject, debounceTime, distinctUntilChanged, switchMap, of } from 'rxjs';
 import { PosService, Section } from './services/pos.service';
-import { Product, Customer, CreateOrderDto } from '../../shared/models/pos.models';
+import { Product, Customer, CreateOrderDto, Employee } from '../../shared/models/pos.models';
 import { CustomersService } from '../customers/services/customers.service';
+import { EmployeesService } from '../employees/services/employees.service';
 
 interface QuickCustomerForm {
   name: string;
@@ -105,8 +106,16 @@ interface QuickCustomerForm {
           @for (item of cart(); track item.product.productId; let i = $index) {
             <div class="py-3 flex justify-between items-center gap-2">
               <div class="flex-1">
-                <h4 class="font-medium text-slate-800 text-sm">{{ item.product.name }}</h4>
+                <h4 class="font-medium text-slate-800 text-sm">{{ item.product.name }} @if (item.product.isService) { <span class="ml-1 rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-indigo-700">Servicio</span> }</h4>
                 <span class="text-xs text-slate-400">\${{ item.product.salePrice }} c/u</span>
+                @if (requiresEmployee(item.product)) {
+                  <select [(ngModel)]="item.employeeId" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs">
+                    <option [ngValue]="null">Asignar técnico responsable...</option>
+                    @for (employee of employees(); track employee.employeeId) {
+                      <option [ngValue]="employee.employeeId">{{ employee.name }}</option>
+                    }
+                  </select>
+                }
               </div>
               <div class="flex items-center gap-2">
                 <button (click)="updateQuantity(i, -1)" class="w-6 h-6 rounded bg-slate-100 text-slate-600 font-bold hover:bg-slate-200">-</button>
@@ -168,11 +177,13 @@ interface QuickCustomerForm {
 export class PosComponent implements OnInit {
   private posService = inject(PosService);
   private customersService = inject(CustomersService);
+  private employeesService = inject(EmployeesService);
 
   sections = signal<Section[]>([]);
   selectedSectionId = signal<number>(1);
   products = signal<Product[]>([]);
   filteredProducts = signal<Product[]>([]);
+  employees = signal<Employee[]>([]);
   
   cart = this.posService.cartItems;
   
@@ -202,7 +213,19 @@ export class PosComponent implements OnInit {
 
   ngOnInit() {
     this.loadSections();
+    this.loadEmployees();
     this.setupCustomerSearchPipeline();
+  }
+
+  loadEmployees() {
+    this.employeesService.getEmployees().subscribe({
+      next: (employees) => this.employees.set(employees),
+      error: () => this.employees.set([])
+    });
+  }
+
+  requiresEmployee(product: Product): boolean {
+    return product.isService || product.employeeCommissionPercentage > 0;
   }
 
   // Pipeline RxJS con debounce (300ms) para búsqueda fluida en tiempo real
@@ -324,7 +347,7 @@ export class PosComponent implements OnInit {
     if (index > -1) {
       currentCart[index].quantity += 1;
     } else {
-      currentCart.push({ product, quantity: 1, sectionId: this.selectedSectionId() });
+      currentCart.push({ product, quantity: 1, sectionId: this.selectedSectionId(), employeeId: null });
     }
 
     this.cart.set(currentCart);
@@ -345,6 +368,12 @@ export class PosComponent implements OnInit {
     const customer = this.selectedCustomer();
     if (!customer) return;
 
+    const pendingEmployees = this.cart().filter(item => this.requiresEmployee(item.product) && !item.employeeId);
+    if (pendingEmployees.length > 0) {
+      alert(`Asigna un técnico responsable para: ${pendingEmployees.map(item => item.product.name).join(', ')}.`);
+      return;
+    }
+
     const orderDto: CreateOrderDto = {
       userId: 1,
       customerId: customer.customerId,
@@ -355,7 +384,8 @@ export class PosComponent implements OnInit {
         productId: item.product.productId,
         sectionId: item.sectionId,
         quantity: item.quantity,
-        unitPrice: item.product.salePrice
+        unitPrice: item.product.salePrice,
+        employeeId: item.employeeId ?? null
       }))
     };
 
