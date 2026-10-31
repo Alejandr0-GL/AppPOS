@@ -26,7 +26,6 @@ interface PurchaseLine {
           <h2 class="text-2xl font-black text-slate-900">Compras y recepción de mercadería</h2>
           <p class="text-sm text-slate-500">Registra ingresos de mercadería y actualiza el costo y el stock por unidad de negocio.</p>
         </div>
-        <button (click)="goToNewPurchase()" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-bold text-white hover:bg-indigo-700">Nueva compra</button>
       </header>
 
       <div class="flex gap-1 rounded-xl bg-slate-200/70 p-1 text-sm font-bold">
@@ -45,18 +44,13 @@ interface PurchaseLine {
       }
 
       @if (activeTab() === 'list') {
-        <div class="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-4">
+        <div class="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-3">
           <label class="text-xs font-bold uppercase tracking-wider text-slate-500">Desde
             <input [(ngModel)]="startDate" (ngModelChange)="loadPurchases()" type="date" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal text-slate-800" />
           </label>
           <label class="text-xs font-bold uppercase tracking-wider text-slate-500">Hasta
             <input [(ngModel)]="endDate" (ngModelChange)="loadPurchases()" type="date" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal text-slate-800" />
           </label>
-          <label class="flex items-end gap-2 pb-2 text-xs font-bold uppercase tracking-wider text-slate-500">
-            <input type="checkbox" [(ngModel)]="allSections" (ngModelChange)="loadPurchases()" class="h-4 w-4 rounded border-slate-300" />
-            Todas las unidades
-          </label>
-          <button (click)="loadPurchases()" class="self-end rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-700">Actualizar</button>
         </div>
 
         <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">

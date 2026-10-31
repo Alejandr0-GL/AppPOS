@@ -174,6 +174,12 @@ public partial class AppPosDbContext : DbContext
             entity.Property(e => e.PaymentMethod)
                 .HasMaxLength(50)
                 .HasColumnName("payment_method");
+            entity.Property(e => e.ReceivedAmount)
+                .HasColumnType("decimal(18, 2)")
+                .HasColumnName("received_amount");
+            entity.Property(e => e.ChangeAmount)
+                .HasColumnType("decimal(18, 2)")
+                .HasColumnName("change_amount");
             entity.Property(e => e.InvoiceType)
                 .HasMaxLength(20)
                 .HasColumnName("invoice_type");

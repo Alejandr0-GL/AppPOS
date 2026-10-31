@@ -39,6 +39,7 @@ export interface CreateOrderDto {
   customerId: number;
   sectionId: number;
   paymentMethod: string;
+  receivedAmount?: number | null;
   invoiceType: 'POS' | 'ELECTRONIC';
   details: CreateOrderDetailDto[];
 }
@@ -51,6 +52,8 @@ export interface OrderSummary {
   date: string;
   totalAmount: number;
   paymentMethod?: string;
+  receivedAmount?: number | null;
+  changeAmount?: number | null;
   invoiceType: 'POS' | 'ELECTRONIC' | string;
   status: string;
   customer?: Pick<Customer, 'customerId' | 'name' | 'documentNumber'> | null;

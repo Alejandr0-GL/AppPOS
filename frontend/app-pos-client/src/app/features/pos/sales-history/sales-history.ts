@@ -2,12 +2,15 @@ import { CommonModule } from '@angular/common';
 import { Component, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Order, OrderSummary } from '../../../shared/models/pos.models';
+import { ReceiptData } from '../../../shared/models/receipt.models';
+import { buildReceiptData, paymentMethodLabel } from '../../../shared/utils/receipt.mapper';
+import { ReceiptComponent } from '../../../shared/components/receipt/receipt';
 import { PosService } from '../services/pos.service';
 
 @Component({
   selector: 'app-sales-history',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ReceiptComponent],
   template: `
     <section class="p-4 md:p-6 space-y-4">
       <header class="flex flex-wrap items-end justify-between gap-3">
@@ -84,7 +87,7 @@ import { PosService } from '../services/pos.service';
                     <td class="px-4 py-3"><span class="block font-semibold text-slate-700">{{ order.customer?.name || 'Consumidor final' }}</span><span class="text-xs text-slate-400">{{ order.customer?.documentNumber || 'Sin documento' }}</span></td>
                     <td class="px-4 py-3"><span class="block font-semibold text-slate-700">{{ order.user?.username || 'Sin usuario' }}</span><span class="text-xs text-slate-400">ID: {{ order.user?.userId || '-' }}</span></td>
                     <td class="px-4 py-3"><span class="rounded-full bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700">{{ order.invoiceType === 'ELECTRONIC' ? 'Factura electrónica' : 'Factura de venta' }}</span></td>
-                    <td class="px-4 py-3 font-semibold text-slate-600">{{ order.paymentMethod || 'No informado' }}</td>
+                    <td class="px-4 py-3 font-semibold text-slate-600">{{ paymentLabel(order.paymentMethod) }}</td>
                     <td class="px-4 py-3"><span class="rounded-full px-2 py-1 text-xs font-bold" [class.bg-emerald-100]="order.status === 'COMPLETED'" [class.text-emerald-700]="order.status === 'COMPLETED'" [class.bg-amber-100]="order.status !== 'COMPLETED'" [class.text-amber-700]="order.status !== 'COMPLETED'">{{ order.status }}</span></td>
                     <td class="px-4 py-3 text-right font-black text-slate-800">{{ order.totalAmount | currency:'COP':'symbol':'1.0-0' }}</td>
                   </tr>
@@ -106,24 +109,33 @@ import { PosService } from '../services/pos.service';
               <div><p class="text-xs font-bold uppercase tracking-wider text-indigo-600">Detalle de venta</p><h3 class="text-2xl font-black text-slate-900">Orden #{{ order.orderId }}</h3><p class="text-sm text-slate-500">{{ order.invoiceType === 'ELECTRONIC' ? 'Factura electrónica' : 'Factura de venta' }} · {{ order.date | date:'dd/MM/yyyy HH:mm' }}</p></div>
               <button (click)="closeOrderDetail()" class="rounded-md px-3 py-1 text-2xl font-bold text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Cerrar detalle">&times;</button>
             </div>
-            <div class="grid gap-3 border-b border-slate-200 bg-slate-50 p-5 text-sm md:grid-cols-4"><div><span class="block text-xs uppercase text-slate-500">Cliente</span><strong class="text-slate-800">{{ order.customer?.name || 'Consumidor final' }}</strong><span class="block text-slate-500">Doc: {{ order.customer?.documentNumber || 'Sin documento' }}</span></div><div><span class="block text-xs uppercase text-slate-500">Cajero</span><strong class="text-slate-800">{{ order.user?.username || 'Sin usuario' }}</strong><span class="block text-slate-500">ID: {{ order.user?.userId || '-' }}</span></div><div><span class="block text-xs uppercase text-slate-500">Método de pago</span><strong class="text-slate-800">{{ order.paymentMethod || 'No informado' }}</strong></div><div><span class="block text-xs uppercase text-slate-500">Estado</span><span class="rounded-full px-2 py-1 text-xs font-bold" [class.bg-emerald-100]="order.status === 'COMPLETED'" [class.text-emerald-700]="order.status === 'COMPLETED'" [class.bg-red-100]="order.status === 'CANCELLED'" [class.text-red-700]="order.status === 'CANCELLED'">{{ order.status }}</span></div></div>
+            <div class="grid gap-3 border-b border-slate-200 bg-slate-50 p-5 text-sm md:grid-cols-4"><div><span class="block text-xs uppercase text-slate-500">Cliente</span><strong class="text-slate-800">{{ order.customer?.name || 'Consumidor final' }}</strong><span class="block text-slate-500">Doc: {{ order.customer?.documentNumber || 'Sin documento' }}</span></div><div><span class="block text-xs uppercase text-slate-500">Cajero</span><strong class="text-slate-800">{{ order.user?.username || 'Sin usuario' }}</strong><span class="block text-slate-500">ID: {{ order.user?.userId || '-' }}</span></div><div><span class="block text-xs uppercase text-slate-500">Método de pago</span><strong class="text-slate-800">{{ paymentLabel(order.paymentMethod) }}</strong></div><div><span class="block text-xs uppercase text-slate-500">Estado</span><span class="rounded-full px-2 py-1 text-xs font-bold" [class.bg-emerald-100]="order.status === 'COMPLETED'" [class.text-emerald-700]="order.status === 'COMPLETED'" [class.bg-red-100]="order.status === 'CANCELLED'" [class.text-red-700]="order.status === 'CANCELLED'">{{ order.status }}</span></div></div>
             <div class="flex-1 overflow-y-auto p-5"><h4 class="mb-3 font-bold text-slate-800">Productos</h4><div class="overflow-x-auto"><table class="w-full min-w-[680px] text-left text-sm"><thead class="bg-slate-50 text-xs uppercase text-slate-500"><tr><th class="px-3 py-2">Producto / SKU</th><th class="px-3 py-2">Cantidad</th><th class="px-3 py-2">Precio unitario</th><th class="px-3 py-2">IVA / Tax</th><th class="px-3 py-2 text-right">Subtotal</th></tr></thead><tbody class="divide-y divide-slate-100">
               @for (detail of order.details; track detail.orderDetailId) {
                 <tr><td class="px-3 py-3"><strong class="block text-slate-800">{{ detail.product?.name || 'Producto #' + detail.productId }}</strong><span class="text-xs text-slate-500">SKU: {{ detail.product?.sku || 'Sin SKU' }}</span></td><td class="px-3 py-3 text-slate-700">{{ detail.quantity }}</td><td class="px-3 py-3 text-slate-700">{{ detail.unitPrice | currency:'COP':'symbol':'1.0-0' }}</td><td class="px-3 py-3 text-slate-700">{{ detail.taxAmount | currency:'COP':'symbol':'1.0-0' }}</td><td class="px-3 py-3 text-right font-bold text-slate-800">{{ detail.subtotal | currency:'COP':'symbol':'1.0-0' }}</td></tr>
               }
               </tbody></table></div>
             </div>
-            <div class="border-t border-slate-200 p-5"><div class="ml-auto max-w-sm space-y-2 text-sm"><div class="flex justify-between text-slate-500"><span>Subtotal base</span><span>{{ baseAmount(order) | currency:'COP':'symbol':'1.0-0' }}</span></div><div class="flex justify-between text-slate-500"><span>Impuestos (IVA)</span><span>{{ taxAmount(order) | currency:'COP':'symbol':'1.0-0' }}</span></div><div class="flex justify-between border-t border-slate-200 pt-2 text-xl font-black text-slate-900"><span>Total pagar</span><span class="text-emerald-600">{{ order.totalAmount | currency:'COP':'symbol':'1.0-0' }}</span></div></div>
-            @if (order.status === 'COMPLETED') {
-              <button (click)="cancelOrder(order.orderId)" class="mt-4 rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700">
-                Cancelar venta
-              </button>
-            } @else {
-              <span class="mt-4 inline-block rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-700">Anulado por: {{ order.cancelledBy?.username || 'Usuario' }}</span>
-            }
+            <div class="border-t border-slate-200 p-5"><div class="ml-auto max-w-sm space-y-2 text-sm"><div class="flex justify-between text-slate-500"><span>Subtotal base</span><span>{{ baseAmount(order) | currency:'COP':'symbol':'1.0-0' }}</span></div><div class="flex justify-between text-slate-500"><span>Impuestos (IVA)</span><span>{{ taxAmount(order) | currency:'COP':'symbol':'1.0-0' }}</span></div>@if (order.receivedAmount != null) {<div class="flex justify-between text-slate-500"><span>Efectivo recibido</span><span>{{ order.receivedAmount | currency:'COP':'symbol':'1.0-0' }}</span></div><div class="flex justify-between text-slate-500"><span>Cambio</span><span>{{ (order.changeAmount ?? 0) | currency:'COP':'symbol':'1.0-0' }}</span></div>}<div class="flex justify-between border-t border-slate-200 pt-2 text-xl font-black text-slate-900"><span>Total pagar</span><span class="text-emerald-600">{{ order.totalAmount | currency:'COP':'symbol':'1.0-0' }}</span></div></div>
+              <div class="mt-4 flex flex-wrap items-center gap-2">
+                <button (click)="openReceipt(order)" class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-700">
+                  Ver recibo
+                </button>
+                @if (order.status === 'COMPLETED') {
+                  <button (click)="cancelOrder(order.orderId)" class="rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700">
+                    Cancelar venta
+                  </button>
+                } @else {
+                  <span class="inline-block rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-700">Anulado por: {{ order.cancelledBy?.username || 'Usuario' }}</span>
+                }
+              </div>
             </div>
           }
         </section>
+      }
+
+      @if (receiptData(); as receipt) {
+        <app-receipt [data]="receipt" (closed)="closeReceipt()"></app-receipt>
       }
     </section>
   `
@@ -133,6 +145,7 @@ export class SalesHistoryComponent {
 
   orders = signal<OrderSummary[]>([]);
   selectedOrder = signal<Order | null>(null);
+  receiptData = signal<ReceiptData | null>(null);
   selectedSectionId = this.posService.selectedSectionId;
   errorMessage = signal('');
   startDate = '';
@@ -189,6 +202,19 @@ export class SalesHistoryComponent {
 
   closeOrderDetail(): void {
     this.selectedOrder.set(null);
+  }
+
+  /** POS-05: reimpresión del recibo de una venta ya registrada. */
+  openReceipt(order: Order): void {
+    this.receiptData.set(buildReceiptData(order));
+  }
+
+  closeReceipt(): void {
+    this.receiptData.set(null);
+  }
+
+  paymentLabel(method?: string | null): string {
+    return paymentMethodLabel(method);
   }
 
   baseAmount(order: Order): number {
