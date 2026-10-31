@@ -6,6 +6,9 @@ import { PosService, Section } from './services/pos.service';
 import { Product, Customer, CreateOrderDto, Employee } from '../../shared/models/pos.models';
 import { CustomersService } from '../customers/services/customers.service';
 import { EmployeesService } from '../employees/services/employees.service';
+import { ReceiptComponent } from '../../shared/components/receipt/receipt';
+import { ReceiptData } from '../../shared/models/receipt.models';
+import { buildReceiptData } from '../../shared/utils/receipt.mapper';
 
 interface QuickCustomerForm {
   name: string;
@@ -21,7 +24,7 @@ interface QuickCustomerForm {
 @Component({
   selector: 'app-pos',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ReceiptComponent],
   template: `
     <div class="flex h-full gap-4 p-4">
       <!-- PANEL IZQUIERDO: Selección de Tienda, Buscador y Catálogo Exclusivo -->
@@ -161,16 +164,59 @@ interface QuickCustomerForm {
             </div>
           </div>
 
+          <!-- POS-05: método de pago y efectivo recibido (se imprimen en el recibo) -->
+          <div class="space-y-2 pt-2 border-t border-slate-200">
+            <div class="flex gap-2">
+              <button
+                type="button"
+                (click)="setPaymentMethod('CASH')"
+                [class.bg-slate-900]="paymentMethod === 'CASH'"
+                [class.text-white]="paymentMethod === 'CASH'"
+                class="flex-1 rounded-lg border border-slate-300 bg-white py-1.5 text-xs font-bold text-slate-600">
+                Efectivo
+              </button>
+              <button
+                type="button"
+                (click)="setPaymentMethod('TRANSFER')"
+                [class.bg-slate-900]="paymentMethod === 'TRANSFER'"
+                [class.text-white]="paymentMethod === 'TRANSFER'"
+                class="flex-1 rounded-lg border border-slate-300 bg-white py-1.5 text-xs font-bold text-slate-600">
+                Transferencia
+              </button>
+            </div>
+
+            @if (paymentMethod === 'CASH') {
+              <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Efectivo recibido
+                <input
+                  type="number"
+                  min="0"
+                  step="1000"
+                  [(ngModel)]="cashReceived"
+                  placeholder="0"
+                  class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal normal-case text-slate-800" />
+              </label>
+              <div class="flex justify-between text-xs font-bold" [class.text-red-600]="cashReceived !== null && cashReceived > 0 && cashDifference < 0" [class.text-slate-600]="cashReceived === null || cashReceived <= 0 || cashDifference >= 0">
+                <span>Cambio</span>
+                <span>\${{ cashReceived !== null && cashReceived > 0 ? (cashDifference | number:'1.0-0') : '0' }}</span>
+              </div>
+            }
+          </div>
+
           <button 
-            [disabled]="cart().length === 0 || !selectedCustomer()"
+            [disabled]="cart().length === 0 || !selectedCustomer() || processingSale() || (paymentMethod === 'CASH' && cashReceived !== null && cashDifference < 0)"
             (click)="checkout()"
             class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-bold rounded-xl shadow-lg transition-all text-center">
-            Procesar Venta
+            {{ processingSale() ? 'Procesando venta...' : 'Procesar Venta' }}
           </button>
         </div>
       </div>
 
       @if (customerModalOpen()) {<div class="fixed inset-0 z-40 bg-slate-950/50" (click)="closeQuickCustomer()"></div><section class="fixed inset-4 z-50 m-auto max-h-[calc(100vh-2rem)] max-w-2xl overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl"><div class="flex justify-between border-b pb-4"><h3 class="text-xl font-black">Nuevo cliente</h3><button (click)="closeQuickCustomer()" class="text-2xl text-slate-400">&times;</button></div><div class="grid gap-3 py-5 md:grid-cols-2"><label class="text-xs font-bold uppercase">Nombre *<input [(ngModel)]="quickCustomer.name" class="mt-1 w-full rounded border px-3 py-2 text-sm" /></label><label class="text-xs font-bold uppercase">Tipo documento *<select [(ngModel)]="quickCustomer.documentType" (ngModelChange)="onQuickDocumentTypeChange()" class="mt-1 w-full rounded border bg-white px-3 py-2 text-sm"><option value="CC">Cédula de Ciudadanía</option><option value="NIT">NIT</option><option value="CE">Cédula de Extranjería</option><option value="PASSPORT">Pasaporte</option></select></label><label class="text-xs font-bold uppercase">Número documento *<input [(ngModel)]="quickCustomer.documentNumber" class="mt-1 w-full rounded border px-3 py-2 text-sm" /></label><label class="text-xs font-bold uppercase">Teléfono<input [(ngModel)]="quickCustomer.phone" class="mt-1 w-full rounded border px-3 py-2 text-sm" /></label><label class="text-xs font-bold uppercase">Dirección<input [(ngModel)]="quickCustomer.address" class="mt-1 w-full rounded border px-3 py-2 text-sm" /></label><label class="text-xs font-bold uppercase">Ciudad<input [(ngModel)]="quickCustomer.city" class="mt-1 w-full rounded border px-3 py-2 text-sm" /></label><label class="text-xs font-bold uppercase">Departamento<input [(ngModel)]="quickCustomer.department" class="mt-1 w-full rounded border px-3 py-2 text-sm" /></label><label class="text-xs font-bold uppercase">Correo<input [(ngModel)]="quickCustomer.email" type="email" class="mt-1 w-full rounded border px-3 py-2 text-sm" /></label></div><div class="flex justify-end gap-2 border-t pt-4"><button (click)="closeQuickCustomer()" class="rounded border px-4 py-2 text-sm font-bold">Cancelar</button><button (click)="saveQuickCustomer()" class="rounded bg-indigo-600 px-5 py-2 text-sm font-bold text-white">Guardar cliente</button></div></section>}
+
+      @if (receiptData(); as receipt) {
+        <app-receipt [data]="receipt" [success]="saleCompleted()" (closed)="closeReceipt()"></app-receipt>
+      }
     </div>
   `
 })
@@ -198,6 +244,13 @@ export class PosComponent implements OnInit {
   searchQuery = '';
   invoiceType: 'POS' | 'ELECTRONIC' = 'POS';
 
+  // POS-05: cobro en efectivo/transferencia y recibo impreso
+  paymentMethod: 'CASH' | 'TRANSFER' = 'CASH';
+  cashReceived: number | null = null;
+  processingSale = signal(false);
+  receiptData = signal<ReceiptData | null>(null);
+  saleCompleted = signal(false);
+
   private readonly sectionEffect = effect(() => {
     const sectionId = this.posService.selectedSectionId();
     if (!sectionId || sectionId === this.selectedSectionId()) return;
@@ -210,6 +263,35 @@ export class PosComponent implements OnInit {
   cartTotal = computed(() => {
     return this.cart().reduce((acc, item) => acc + (item.product.salePrice * item.quantity), 0);
   });
+
+  /** Diferencia entre el efectivo recibido y el total (negativa = falta dinero). */
+  get cashDifference(): number {
+    return (this.cashReceived ?? 0) - this.cartTotal();
+  }
+
+  setPaymentMethod(method: 'CASH' | 'TRANSFER'): void {
+    this.paymentMethod = method;
+    if (method !== 'CASH') {
+      this.cashReceived = null;
+    }
+  }
+
+  closeReceipt(): void {
+    this.receiptData.set(null);
+    this.saleCompleted.set(false);
+    // El stock pudo cambiar con la venta: refrescar el catálogo de la unidad.
+    this.loadProductsForSection(this.selectedSectionId());
+  }
+
+  private openReceipt(orderId: number): void {
+    this.posService.getOrder(orderId).subscribe({
+      next: order => {
+        this.receiptData.set(buildReceiptData(order));
+        this.saleCompleted.set(true);
+      },
+      error: () => alert('La venta se registró, pero no fue posible cargar el recibo para imprimir.')
+    });
+  }
 
   ngOnInit() {
     this.loadSections();
@@ -366,7 +448,7 @@ export class PosComponent implements OnInit {
 
   checkout() {
     const customer = this.selectedCustomer();
-    if (!customer) return;
+    if (!customer || this.processingSale()) return;
 
     const pendingEmployees = this.cart().filter(item => this.requiresEmployee(item.product) && !item.employeeId);
     if (pendingEmployees.length > 0) {
@@ -374,11 +456,21 @@ export class PosComponent implements OnInit {
       return;
     }
 
+    const receivedAmount = this.paymentMethod === 'CASH' && this.cashReceived && this.cashReceived > 0
+      ? this.cashReceived
+      : null;
+
+    if (receivedAmount !== null && receivedAmount < this.cartTotal()) {
+      alert('El efectivo recibido es menor al total a pagar.');
+      return;
+    }
+
     const orderDto: CreateOrderDto = {
       userId: 1,
       customerId: customer.customerId,
       sectionId: this.selectedSectionId(),
-      paymentMethod: 'CASH',
+      paymentMethod: this.paymentMethod,
+      receivedAmount,
       invoiceType: this.invoiceType,
       details: this.cart().map(item => ({
         productId: item.product.productId,
@@ -389,13 +481,21 @@ export class PosComponent implements OnInit {
       }))
     };
 
+    this.processingSale.set(true);
+
     this.posService.processSale(orderDto).subscribe({
       next: (res) => {
-        alert(`¡Venta procesada con éxito! N° Orden: ${res.orderId}`);
+        this.processingSale.set(false);
         this.cart.set([]);
         this.selectedCustomer.set(null);
+        this.cashReceived = null;
+        // POS-05: se abre automáticamente la vista previa del recibo de la venta.
+        this.openReceipt(res.orderId);
       },
-      error: (err) => alert(`Error al cobrar: ${err.error?.message || err.message}`)
+      error: (err) => {
+        this.processingSale.set(false);
+        alert(`Error al cobrar: ${err.error?.message || err.message}`);
+      }
     });
   }
 }

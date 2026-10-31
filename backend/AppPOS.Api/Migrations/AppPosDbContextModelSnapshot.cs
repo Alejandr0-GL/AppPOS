@@ -231,6 +231,10 @@ namespace AppPOS.Api.Migrations
                         .HasColumnType("int")
                         .HasColumnName("cancelled_by_user_id");
 
+                    b.Property<decimal?>("ChangeAmount")
+                        .HasColumnType("decimal(18, 2)")
+                        .HasColumnName("change_amount");
+
                     b.Property<int>("CustomerId")
                         .HasColumnType("int")
                         .HasColumnName("customer_id");
@@ -251,6 +255,10 @@ namespace AppPOS.Api.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)")
                         .HasColumnName("payment_method");
+
+                    b.Property<decimal?>("ReceivedAmount")
+                        .HasColumnType("decimal(18, 2)")
+                        .HasColumnName("received_amount");
 
                     b.Property<int>("SectionId")
                         .HasColumnType("int")

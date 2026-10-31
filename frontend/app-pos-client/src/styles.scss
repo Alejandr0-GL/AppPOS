@@ -2,3 +2,193 @@
 @import "tailwindcss/base";
 @import "tailwindcss/components";
 @import "tailwindcss/utilities";
+
+/* ==========================================================================
+   POS-05 · Recibo de venta (impresora térmica 58 mm / 80 mm)
+   ========================================================================== */
+
+.receipt-paper {
+  width: 80mm;
+  max-width: 100%;
+  padding: 4mm 3mm;
+  background: #fff;
+  color: #000;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  /* Aspecto de papel flotante en pantalla (se anula en @media print). */
+  box-shadow: 0 12px 28px -14px rgba(15, 23, 42, 0.45), 0 2px 6px -2px rgba(15, 23, 42, 0.15);
+  word-break: break-word;
+}
+
+.receipt-paper--58 {
+  width: 58mm;
+  padding: 3.5mm 2.5mm;
+  font-size: 11.5px;
+}
+
+.receipt-paper--80 {
+  width: 80mm;
+  font-size: 12px;
+}
+
+/* POS-05: el ticket térmico NO se pinta en pantalla (cero coste de layout/pintado);
+   sólo existe en el DOM para imprimirse bajo @media print. */
+.receipt-print-area {
+  display: none;
+}
+
+@media print {
+  @page {
+    /* IMPORTANTE: aquí NO se define `size`. El largo de la página lo impone el driver
+       de la impresora (p. ej. "58(48) x 210 mm"). Si se fuerza un `size` distinto,
+       Chrome centra el contenido dentro del papel físico y aparece espacio en blanco
+       arriba y abajo. Con `margin: 0` el ticket queda pegado al inicio del rollo;
+       el papel que sobre al final se controla en las preferencias del driver. */
+    margin: 0;
+  }
+
+  html,
+  body {
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  /* Todo el layout (sidebar, topbar, tarjetas, botones) queda oculto. */
+  body * {
+    visibility: hidden !important;
+  }
+
+  /* Se elimina por completo la rama del DOM que no contiene el ticket para no
+     generar páginas en blanco (navegadores con soporte de :has()). */
+  body *:not(:has(.receipt-print-area)):not(.receipt-print-area):not(.receipt-print-area *) {
+    display: none !important;
+  }
+
+  /* Los contenedores del ticket dejan de recortar/limitar la altura. */
+  body *:has(.receipt-print-area) {
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+    box-shadow: none !important;
+  }
+
+  .receipt-overlay {
+    position: static !important;
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  .receipt-shell {
+    width: auto !important;
+    max-width: none !important;
+    margin: 0 !important;
+  }
+
+  /* Encabezado, pie y cualquier control de la UI del modal */
+  .receipt-header,
+  .receipt-footer,
+  .no-print {
+    display: none !important;
+  }
+
+  /* Contenedores del modal: sin sombras, bordes ni relleno al imprimir. */
+  .receipt-panel {
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: #fff !important;
+    box-shadow: none !important;
+  }
+
+  /* ------------------------------------------------------------------------
+     Nitidez para cabezal térmico (POS-58):
+     · Negro puro sobre blanco, sin grises ni suavizado de pantalla.
+     · Fuente monoespaciada nativa (Consolas/Courier) en 11 px / 1.2 y peso 700:
+       el cabezal aplica densidad constante y quema el texto parejo.
+     · Bordes siempre sólidos: nunca punteados ni tramados.
+     ------------------------------------------------------------------------ */
+  #thermal-receipt,
+  #thermal-receipt *,
+  .receipt-print-area,
+  .receipt-print-area * {
+    color: #000000 !important;
+    background: #ffffff !important;
+    opacity: 1 !important;
+    text-shadow: none !important;
+    -webkit-font-smoothing: none !important;
+    font-smooth: never !important;
+    text-rendering: optimizeSpeed !important;
+    font-family: 'Consolas', 'Courier New', monospace !important;
+    font-size: 11px !important;
+    line-height: 1.2 !important;
+    font-weight: 700 !important;
+    border-style: solid !important;
+    border-color: #000000 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* El ticket térmico vuelve a existir sólo al imprimir (en pantalla está oculto). */
+  #thermal-receipt,
+  .receipt-print-area {
+    display: block !important;
+  }
+
+  .receipt-print-area,
+  .receipt-print-area * {
+    visibility: visible !important;
+  }
+
+  .receipt-print-area {
+    position: static !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: #fff !important;
+    color: #000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Sobrescribe utilidades de Tailwind con grises dentro del ticket. */
+  .receipt-print-area [class*='text-slate-'],
+  .receipt-print-area [class*='text-gray-'],
+  .receipt-print-area [class*='text-zinc-'],
+  .receipt-print-area [class*='text-neutral-'],
+  .receipt-print-area [class*='text-stone-'],
+  .receipt-print-area [class*='text-muted'],
+  .receipt-print-area [class*='text-slate-500/'],
+  .receipt-print-area [class*='text-slate-400/'] {
+    color: #000000 !important;
+    opacity: 1 !important;
+  }
+
+  /* El total conserva el máximo énfasis dentro de la tipografía uniforme. */
+  #thermal-receipt .font-black,
+  .receipt-print-area .font-black {
+    font-weight: 900 !important;
+  }
+
+  /* Anchos de impresión: área imprimible real del rollo (el ticket queda centrado). */
+  .receipt-paper--58 {
+    width: 52mm !important;
+  }
+
+  .receipt-paper--80 {
+    width: 74mm !important;
+  }
+}

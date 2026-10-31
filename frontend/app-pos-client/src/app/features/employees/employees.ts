@@ -82,7 +82,7 @@ interface EmployeeForm {
       }
 
       @if (activeTab() === 'commissions') {
-        <div class="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-4">
+        <div class="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-3">
           <label class="text-xs font-bold uppercase tracking-wider text-slate-500">Desde
             <input #commissionStartInput type="date" [value]="startDate" (change)="onStartDateChange(commissionStartInput.value, commissionStartInput)" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal text-slate-800" />
           </label>
@@ -97,7 +97,7 @@ interface EmployeeForm {
               }
             </select>
           </label>
-          <button (click)="loadCommissions()" [disabled]="reportLoading() || !selectedEmployeeId()" class="self-end rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60">{{ reportLoading() ? 'Consultando...' : 'Actualizar' }}</button>
+          
         </div>
 
         @if (reportError()) {

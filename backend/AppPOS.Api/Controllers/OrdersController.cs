@@ -73,6 +73,8 @@ namespace AppPOS.Api.Controllers
                     o.Date,
                     o.TotalAmount,
                     o.PaymentMethod,
+                    o.ReceivedAmount,
+                    o.ChangeAmount,
                     o.UserId,
                     o.InvoiceType,
                     o.CancelledByUserId,
@@ -116,6 +118,8 @@ namespace AppPOS.Api.Controllers
                     o.Date,
                     o.TotalAmount,
                     o.PaymentMethod,
+                    o.ReceivedAmount,
+                    o.ChangeAmount,
                     o.InvoiceType,
                     o.CancelledByUserId,
                     o.Status,
@@ -295,6 +299,23 @@ namespace AppPOS.Api.Controllers
                     });
                 }
 
+                // Normalizar el método de pago y calcular el cambio en el servidor.
+                var paymentMethod = dto.PaymentMethod!.Trim().ToUpperInvariant();
+                var isCashPayment = paymentMethod is "CASH" or "EFECTIVO";
+                decimal? receivedAmount = null;
+                decimal? changeAmount = null;
+
+                if (isCashPayment && dto.ReceivedAmount.HasValue)
+                {
+                    if (dto.ReceivedAmount.Value < grandTotal)
+                    {
+                        return BadRequest(new { message = $"El efectivo recibido ($ {dto.ReceivedAmount.Value:N0}) es menor al total a pagar ($ {grandTotal:N0})." });
+                    }
+
+                    receivedAmount = dto.ReceivedAmount.Value;
+                    changeAmount = dto.ReceivedAmount.Value - grandTotal;
+                }
+
                 // Crear cabecera de la Orden
                 var order = new Order
                 {
@@ -302,7 +323,9 @@ namespace AppPOS.Api.Controllers
                     SectionId = dto.SectionId,
                     UserId = dto.UserId,
                     Date = DateTime.Now,
-                    PaymentMethod = dto.PaymentMethod,
+                    PaymentMethod = paymentMethod,
+                    ReceivedAmount = receivedAmount,
+                    ChangeAmount = changeAmount,
                     InvoiceType = dto.InvoiceType?.ToUpper() == "ELECTRONIC" ? "ELECTRONIC" : "POS",
                     // Pre-MVP: toda venta se registra como COMPLETED para que aparezca en el historial
                     // y pueda cancelarse. El InvoiceType conserva la distinción POS vs. ELECTRONIC.
@@ -340,7 +363,10 @@ namespace AppPOS.Api.Controllers
                     message = "Venta procesada con éxito",
                     orderId = order.OrderId,
                     invoiceType = dto.InvoiceType,
-                    totalAmount = grandTotal
+                    paymentMethod = order.PaymentMethod,
+                    totalAmount = grandTotal,
+                    receivedAmount,
+                    changeAmount
                 });
             }
             catch (InvalidOperationException ex)

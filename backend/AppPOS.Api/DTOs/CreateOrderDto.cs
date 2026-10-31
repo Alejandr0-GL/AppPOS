@@ -17,6 +17,10 @@
         public int SectionId { get; set; }
         public string? PaymentMethod { get; set; }
 
+        // Efectivo entregado por el cliente (opcional, solo pagos en efectivo).
+        // El cambio SIEMPRE lo calcula el servidor para evitar manipulación desde el cliente.
+        public decimal? ReceivedAmount { get; set; }
+
         // POS = Venta normal/remisión | ELECTRONIC = Factura Electrónica
         public string InvoiceType { get; set; } = "POS";
         public List<CreateOrderDetailDto> Details { get; set; } = new();

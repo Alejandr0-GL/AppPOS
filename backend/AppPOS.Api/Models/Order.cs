@@ -21,6 +21,12 @@ public partial class Order
 
     public string? PaymentMethod { get; set; }
 
+    /// <summary>Efectivo entregado por el cliente al momento de la venta (solo pagos en efectivo).</summary>
+    public decimal? ReceivedAmount { get; set; }
+
+    /// <summary>Cambio/devuelta calculado por el servidor: ReceivedAmount - TotalAmount.</summary>
+    public decimal? ChangeAmount { get; set; }
+
     public string InvoiceType { get; set; } = "POS";
 
     public string Status { get; set; } = null!;
