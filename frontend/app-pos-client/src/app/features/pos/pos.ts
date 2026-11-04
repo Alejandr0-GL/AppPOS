@@ -166,13 +166,13 @@ interface QuickCustomerForm {
 
           <!-- POS-05: método de pago y efectivo recibido (se imprimen en el recibo) -->
           <div class="space-y-2 pt-2 border-t border-slate-200">
-            <div class="flex gap-2">
+            <div class="flex gap-1.5">
               <button
                 type="button"
                 (click)="setPaymentMethod('CASH')"
                 [class.bg-slate-900]="paymentMethod === 'CASH'"
                 [class.text-white]="paymentMethod === 'CASH'"
-                class="flex-1 rounded-lg border border-slate-300 bg-white py-1.5 text-xs font-bold text-slate-600">
+                class="flex-1 rounded-lg border border-slate-300 bg-white py-1.5 text-[11px] font-bold text-slate-600">
                 Efectivo
               </button>
               <button
@@ -180,10 +180,25 @@ interface QuickCustomerForm {
                 (click)="setPaymentMethod('TRANSFER')"
                 [class.bg-slate-900]="paymentMethod === 'TRANSFER'"
                 [class.text-white]="paymentMethod === 'TRANSFER'"
-                class="flex-1 rounded-lg border border-slate-300 bg-white py-1.5 text-xs font-bold text-slate-600">
+                class="flex-1 rounded-lg border border-slate-300 bg-white py-1.5 text-[11px] font-bold text-slate-600">
                 Transferencia
               </button>
+              <button
+                type="button"
+                (click)="setPaymentMethod('CREDIT')"
+                [class.bg-amber-500]="paymentMethod === 'CREDIT'"
+                [class.text-white]="paymentMethod === 'CREDIT'"
+                [class.border-amber-400]="paymentMethod === 'CREDIT'"
+                class="flex-1 rounded-lg border border-slate-300 bg-white py-1.5 text-[11px] font-bold text-slate-600">
+                Pendiente
+              </button>
             </div>
+
+            @if (paymentMethod === 'CREDIT') {
+              <p class="rounded-lg bg-amber-50 px-3 py-2 text-[11px] font-bold leading-snug text-amber-700 ring-1 ring-amber-200">
+                Venta a crédito: queda <span class="uppercase">pendiente de pago</span> y el inventario se descuenta igual.
+              </p>
+            }
 
             @if (paymentMethod === 'CASH') {
               <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
@@ -245,7 +260,8 @@ export class PosComponent implements OnInit {
   invoiceType: 'POS' | 'ELECTRONIC' = 'POS';
 
   // POS-05: cobro en efectivo/transferencia y recibo impreso
-  paymentMethod: 'CASH' | 'TRANSFER' = 'CASH';
+  // POS-06: 'CREDIT' registra la venta como pendiente de pago (sin monto recibido)
+  paymentMethod: 'CASH' | 'TRANSFER' | 'CREDIT' = 'CASH';
   cashReceived: number | null = null;
   processingSale = signal(false);
   receiptData = signal<ReceiptData | null>(null);
@@ -269,7 +285,7 @@ export class PosComponent implements OnInit {
     return (this.cashReceived ?? 0) - this.cartTotal();
   }
 
-  setPaymentMethod(method: 'CASH' | 'TRANSFER'): void {
+  setPaymentMethod(method: 'CASH' | 'TRANSFER' | 'CREDIT'): void {
     this.paymentMethod = method;
     if (method !== 'CASH') {
       this.cashReceived = null;

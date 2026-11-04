@@ -138,6 +138,32 @@ describe('ReceiptComponent', () => {
     expect(closed).toBe(true);
   });
 
+  it('estampa el estado pendiente en el ticket (POS-06)', () => {
+    const fixture = TestBed.createComponent(ReceiptComponent);
+    fixture.componentRef.setInput('data', { ...data, status: 'PENDING' });
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('PENDIENTE DE PAGO');
+  });
+
+  it('muestra "Pendiente" en Recibido/Cambio para ventas a crédito sin cobrar (POS-06)', () => {
+    const fixture = TestBed.createComponent(ReceiptComponent);
+    fixture.componentRef.setInput('data', { ...data, status: 'PENDING', receivedAmount: 0, changeAmount: 0 });
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.receivedLabel()).toBe('Pendiente');
+    expect(fixture.componentInstance.changeLabel()).toBe('Pendiente');
+    expect((fixture.nativeElement as HTMLElement).querySelector('#thermal-receipt')?.textContent).toContain('Pendiente');
+  });
+
+  it('no estampa estado cuando la venta está pagada', () => {
+    const fixture = TestBed.createComponent(ReceiptComponent);
+    fixture.componentRef.setInput('data', { ...data, status: 'PAID' });
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('PENDIENTE DE PAGO');
+  });
+
   it('toma los datos de la empresa desde environment.company', () => {
     const expectedName = environment.company.name.trim() || 'Punto de venta';
 

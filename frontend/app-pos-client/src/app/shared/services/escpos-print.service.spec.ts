@@ -123,4 +123,32 @@ describe('escpos-print.service', () => {
     // Sólo ASCII imprimible (0x20-0x7E), LF (0x0A) y comandos ESC/POS (0x00-0x1F).
     expect(Array.from(bytes).every(byte => byte <= 0x7e)).toBe(true);
   });
+
+  it('estampa PENDIENTE DE PAGO en las ventas a crédito (POS-06)', () => {
+    const pending: ReceiptData = {
+      ...receipt,
+      status: 'PENDING',
+      paymentMethod: 'Crédito (pendiente)',
+      receivedAmount: 0,
+      changeAmount: 0
+    };
+
+    const text = printableText(buildEscPosReceipt(pending, '58mm'));
+
+    expect(text).toContain('PENDIENTE DE PAGO');
+    expect(text).toContain('Credito (pendiente)');
+    expect(text).toMatch(/Recibido:\s+Pendiente/);
+    expect(text).toMatch(/Cambio:\s+Pendiente/);
+  });
+
+  it('imprime recibido y cambio reales cuando la venta a crédito ya fue pagada', () => {
+    const paid: ReceiptData = { ...receipt, status: 'PAID', receivedAmount: 120000, changeAmount: 1000 };
+
+    const text = printableText(buildEscPosReceipt(paid, '58mm'));
+
+    expect(text).not.toContain('Pendiente');
+    expect(text).not.toContain('PENDIENTE DE PAGO');
+    expect(text).toMatch(/Recibido:\s+\$ 120\.000/);
+    expect(text).toMatch(/Cambio:\s+\$ 1\.000/);
+  });
 });

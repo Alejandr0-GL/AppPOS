@@ -251,6 +251,10 @@ namespace AppPOS.Api.Migrations
                         .HasColumnType("nvarchar(20)")
                         .HasColumnName("invoice_type");
 
+                    b.Property<DateTime?>("PaidAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("paid_at");
+
                     b.Property<string>("PaymentMethod")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)")

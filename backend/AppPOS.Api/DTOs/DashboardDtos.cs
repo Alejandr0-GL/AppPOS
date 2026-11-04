@@ -9,6 +9,18 @@ namespace AppPOS.Api.DTOs
         public int OutOfStockCount { get; set; }
         public decimal TodaySalesTotal { get; set; }
         public int TodayOrdersCount { get; set; }
+
+        /// <summary>POS-06: dinero que realmente ingresó hoy (ventas de contado de hoy + créditos cobrados hoy).</summary>
+        public decimal TodayCollectedTotal { get; set; }
+
+        /// <summary>POS-06: parte de <see cref="TodayCollectedTotal"/> que corresponde a créditos cobrados hoy.</summary>
+        public decimal TodayCreditCollectedTotal { get; set; }
+
+        /// <summary>POS-06: saldo total por cobrar (ventas a crédito en estado PENDING, sin importar la fecha).</summary>
+        public decimal PendingCreditTotal { get; set; }
+
+        /// <summary>POS-06: número de ventas a crédito pendientes de pago.</summary>
+        public int PendingCreditCount { get; set; }
     }
 
     public class SalesTrendPointDto

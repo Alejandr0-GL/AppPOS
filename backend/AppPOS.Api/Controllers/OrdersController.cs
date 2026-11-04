@@ -75,6 +75,7 @@ namespace AppPOS.Api.Controllers
                     o.PaymentMethod,
                     o.ReceivedAmount,
                     o.ChangeAmount,
+                    o.PaidAt,
                     o.UserId,
                     o.InvoiceType,
                     o.CancelledByUserId,
@@ -120,6 +121,7 @@ namespace AppPOS.Api.Controllers
                     o.PaymentMethod,
                     o.ReceivedAmount,
                     o.ChangeAmount,
+                    o.PaidAt,
                     o.InvoiceType,
                     o.CancelledByUserId,
                     o.Status,
@@ -302,10 +304,18 @@ namespace AppPOS.Api.Controllers
                 // Normalizar el método de pago y calcular el cambio en el servidor.
                 var paymentMethod = dto.PaymentMethod!.Trim().ToUpperInvariant();
                 var isCashPayment = paymentMethod is "CASH" or "EFECTIVO";
+                // POS-06: venta a crédito / pago pendiente. El inventario se descuenta igual.
+                var isCreditPayment = paymentMethod is "CREDIT" or "CREDITO" or "PENDING";
                 decimal? receivedAmount = null;
                 decimal? changeAmount = null;
 
-                if (isCashPayment && dto.ReceivedAmount.HasValue)
+                if (isCreditPayment)
+                {
+                    paymentMethod = "CREDIT";
+                    receivedAmount = 0m;
+                    changeAmount = 0m;
+                }
+                else if (isCashPayment && dto.ReceivedAmount.HasValue)
                 {
                     if (dto.ReceivedAmount.Value < grandTotal)
                     {
@@ -327,9 +337,9 @@ namespace AppPOS.Api.Controllers
                     ReceivedAmount = receivedAmount,
                     ChangeAmount = changeAmount,
                     InvoiceType = dto.InvoiceType?.ToUpper() == "ELECTRONIC" ? "ELECTRONIC" : "POS",
-                    // Pre-MVP: toda venta se registra como COMPLETED para que aparezca en el historial
-                    // y pueda cancelarse. El InvoiceType conserva la distinción POS vs. ELECTRONIC.
-                    Status = "COMPLETED",
+                    // POS-06: las ventas a crédito quedan PENDING hasta que se registre el pago.
+                    // El resto se registra COMPLETED y puede cancelarse desde el historial.
+                    Status = isCreditPayment ? "PENDING" : "COMPLETED",
                     TotalAmount = grandTotal
                 };
 
@@ -362,6 +372,7 @@ namespace AppPOS.Api.Controllers
                 {
                     message = "Venta procesada con éxito",
                     orderId = order.OrderId,
+                    status = order.Status,
                     invoiceType = dto.InvoiceType,
                     paymentMethod = order.PaymentMethod,
                     totalAmount = grandTotal,
@@ -379,6 +390,76 @@ namespace AppPOS.Api.Controllers
                 await transaction.RollbackAsync();
                 return StatusCode(500, new { message = $"Error al procesar la venta: {ex.Message}" });
             }
+        }
+
+        // PATCH: api/Orders/5/pay
+        // POS-06: registra el pago final de una venta a crédito (estado PENDING → PAID)
+        [HttpPatch("{id:int}/pay")]
+        public async Task<IActionResult> PayOrder(int id, [FromBody] OrderPaymentDto dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto.PaymentMethod))
+            {
+                return BadRequest(new { message = "El método de pago es obligatorio." });
+            }
+
+            var paymentMethod = dto.PaymentMethod.Trim().ToUpperInvariant();
+            var isCashPayment = paymentMethod is "CASH" or "EFECTIVO";
+            var isTransferPayment = paymentMethod is "TRANSFER" or "TRANSFERENCIA";
+
+            if (!isCashPayment && !isTransferPayment)
+            {
+                return BadRequest(new { message = "El método de pago final debe ser efectivo (CASH) o transferencia (TRANSFER)." });
+            }
+
+            var order = await _context.Orders.FirstOrDefaultAsync(o => o.OrderId == id);
+
+            if (order == null)
+            {
+                return NotFound(new { message = "Orden no encontrada." });
+            }
+
+            if (order.Status == "CANCELLED")
+            {
+                return Conflict(new { message = "La orden está anulada y no se puede cobrar." });
+            }
+
+            if (order.Status != "PENDING")
+            {
+                return Conflict(new { message = $"Solo se pueden cobrar órdenes pendientes de pago (estado actual: {order.Status})." });
+            }
+
+            decimal? receivedAmount = null;
+            decimal? changeAmount = null;
+
+            if (isCashPayment && dto.ReceivedAmount.HasValue)
+            {
+                if (dto.ReceivedAmount.Value < order.TotalAmount)
+                {
+                    return BadRequest(new { message = $"El efectivo recibido ($ {dto.ReceivedAmount.Value:N0}) es menor al total a pagar ($ {order.TotalAmount:N0})." });
+                }
+
+                receivedAmount = dto.ReceivedAmount.Value;
+                changeAmount = dto.ReceivedAmount.Value - order.TotalAmount;
+            }
+
+            order.Status = "PAID";
+            order.PaymentMethod = isCashPayment ? "CASH" : "TRANSFER";
+            order.ReceivedAmount = receivedAmount;
+            order.ChangeAmount = changeAmount;
+            order.PaidAt = DateTime.Now;
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                message = "Pago registrado con éxito",
+                orderId = order.OrderId,
+                status = order.Status,
+                paymentMethod = order.PaymentMethod,
+                totalAmount = order.TotalAmount,
+                receivedAmount,
+                changeAmount
+            });
         }
 
         // PUT: api/Orders/5/cancel
@@ -404,9 +485,11 @@ namespace AppPOS.Api.Controllers
                 }
 
                 // Se admite también PENDING_ELECTRONIC para poder anular facturas electrónicas heredadas.
-                if (order.Status != "COMPLETED" && order.Status != "PENDING_ELECTRONIC")
+                // POS-06: las ventas a crédito (PENDING) y ya pagadas (PAID) también se pueden anular.
+                var cancellableStatuses = new[] { "COMPLETED", "PAID", "PENDING", "PENDING_ELECTRONIC" };
+                if (!cancellableStatuses.Contains(order.Status))
                 {
-                    return BadRequest(new { message = "Solo se pueden cancelar órdenes completadas o pendientes de envío electrónico." });
+                    return BadRequest(new { message = "La orden no se puede anular en su estado actual." });
                 }
 
                 // Los servicios (mano de obra) no reponen inventario al anular.

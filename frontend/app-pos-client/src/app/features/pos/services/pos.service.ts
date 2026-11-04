@@ -1,7 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { Product, Customer, CreateOrderDto, Order, OrderSummary, Inventory, StockMovement } from '../../../shared/models/pos.models';
+import { Product, Customer, CreateOrderDto, Order, OrderSummary, Inventory, StockMovement, PayOrderRequest, PayOrderResponse } from '../../../shared/models/pos.models';
 
 export interface Section {
   sectionId: number;
@@ -75,6 +75,11 @@ export class PosService {
       `${this.apiUrl}/Orders/${orderId}/cancel`,
       { userId }
     );
+  }
+
+  /** POS-06: registra el pago de una venta a crédito (PENDING → PAID). */
+  payOrder(orderId: number, payment: PayOrderRequest): Observable<PayOrderResponse> {
+    return this.http.patch<PayOrderResponse>(`${this.apiUrl}/Orders/${orderId}/pay`, payment);
   }
 
   getInventories(sectionId: number): Observable<Inventory[]> {

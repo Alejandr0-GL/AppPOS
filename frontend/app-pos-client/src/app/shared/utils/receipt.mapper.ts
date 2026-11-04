@@ -9,8 +9,18 @@ const PAYMENT_LABELS: Record<string, string> = {
   TRANSFERENCIA: 'Transferencia',
   CARD: 'Tarjeta',
   TARJETA: 'Tarjeta',
-  CREDIT: 'Crédito',
+  CREDIT: 'Crédito (pendiente)',
+  CREDITO: 'Crédito (pendiente)',
+  PENDING: 'Crédito (pendiente)',
   MIXED: 'Mixto'
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  COMPLETED: 'Completada',
+  PAID: 'Pagada',
+  PENDING: 'Pendiente de pago',
+  CANCELLED: 'Anulada',
+  PENDING_ELECTRONIC: 'Pendiente de envío'
 };
 
 const DOCUMENT_TYPE_LABELS: Record<string, string> = {
@@ -34,6 +44,46 @@ export function customerDocumentTypeLabel(documentType?: string | null): string 
   if (!documentType) return 'Doc.';
   const key = documentType.trim().toUpperCase();
   return DOCUMENT_TYPE_LABELS[key] ?? key;
+}
+
+/** Estado de la orden en español (POS-06: COMPLETED / PAID / PENDING / CANCELLED). */
+export function statusLabel(status?: string | null): string {
+  if (!status) return 'Sin estado';
+  const key = status.trim().toUpperCase();
+  return STATUS_LABELS[key] ?? status;
+}
+
+/** ¿La orden está pendiente de pago (venta a crédito)? */
+export function isPendingPayment(status?: string | null): boolean {
+  return (status ?? '').trim().toUpperCase() === 'PENDING';
+}
+
+/** Marca que se estampa en el ticket cuando la orden no está pagada o fue anulada. */
+export function receiptStatusStamp(status?: string | null): string | null {
+  const key = (status ?? '').trim().toUpperCase();
+  if (key === 'PENDING') return 'PENDIENTE DE PAGO';
+  if (key === 'CANCELLED') return 'DOCUMENTO ANULADO';
+  return null;
+}
+
+/** Texto que se muestra en Recibido/Cambio mientras la venta a crédito no se ha cobrado. */
+export const PENDING_PAYMENT_AMOUNT_LABEL = 'Pendiente';
+
+type MoneyFormatter = (value: number) => string;
+
+/**
+ * Etiqueta de "Recibido" en el ticket. En ventas a crédito sin cobrar muestra "Pendiente";
+ * una vez pagada (PAID) muestra el monto real registrado por el servidor.
+ */
+export function receiptReceivedLabel(data: Pick<ReceiptData, 'status' | 'receivedAmount'>, money: MoneyFormatter): string {
+  if (isPendingPayment(data.status)) return PENDING_PAYMENT_AMOUNT_LABEL;
+  return data.receivedAmount == null ? 'No registrado' : money(data.receivedAmount);
+}
+
+/** Etiqueta de "Cambio" en el ticket ("Pendiente" mientras la venta a crédito no se cobre). */
+export function receiptChangeLabel(data: Pick<ReceiptData, 'status' | 'changeAmount'>, money: MoneyFormatter): string {
+  if (isPendingPayment(data.status)) return PENDING_PAYMENT_AMOUNT_LABEL;
+  return data.changeAmount == null ? '-' : money(data.changeAmount);
 }
 
 /** Transforma una orden (POS o historial) en los datos que consume el recibo térmico. */

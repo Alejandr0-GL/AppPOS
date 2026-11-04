@@ -30,4 +30,14 @@
     {
         public int UserId { get; set; }
     }
+
+    // PATCH api/Orders/{id}/pay — registro del pago de una venta a crédito (POS-06)
+    public class OrderPaymentDto
+    {
+        /// <summary>Método de pago final: CASH o TRANSFER.</summary>
+        public string? PaymentMethod { get; set; }
+
+        /// <summary>Efectivo entregado por el cliente (solo CASH). El cambio lo calcula el servidor.</summary>
+        public decimal? ReceivedAmount { get; set; }
+    }
 }

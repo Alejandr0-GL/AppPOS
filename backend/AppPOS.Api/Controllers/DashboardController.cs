@@ -45,8 +45,28 @@ namespace AppPOS.Api.Controllers
                     && order.Date >= today
                     && order.Date < tomorrow);
 
+            var sectionOrders = _context.Orders
+                .AsNoTracking()
+                .Where(order => order.SectionId == sectionId);
+
+            // POS-06: ingreso real del día = contado vendido hoy + créditos cobrados hoy (paid_at).
+            var todayCashSales = await sectionOrders
+                .Where(order => order.Status == "COMPLETED" && order.Date >= today && order.Date < tomorrow)
+                .SumAsync(order => (decimal?)order.TotalAmount) ?? 0m;
+
+            var todayCreditCollected = await sectionOrders
+                .Where(order => order.Status == "PAID" && order.PaidAt >= today && order.PaidAt < tomorrow)
+                .SumAsync(order => (decimal?)order.TotalAmount) ?? 0m;
+
+            // Cartera: todo lo vendido a crédito que sigue sin cobrar (sin filtro de fecha).
+            var pendingCredit = sectionOrders.Where(order => order.Status == "PENDING");
+
             var summary = new DashboardSummaryDto
             {
+                TodayCollectedTotal = todayCashSales + todayCreditCollected,
+                TodayCreditCollectedTotal = todayCreditCollected,
+                PendingCreditTotal = await pendingCredit.SumAsync(order => (decimal?)order.TotalAmount) ?? 0m,
+                PendingCreditCount = await pendingCredit.CountAsync(),
                 // El índice único (ProductId, SectionId) garantiza una fila por producto.
                 CostValue = await inventories.SumAsync(inventory => (decimal?)(inventory.CurrentStock * inventory.Product.PurchasePrice)) ?? 0m,
                 SaleValue = await inventories.SumAsync(inventory => (decimal?)(inventory.CurrentStock * inventory.Product.SalePrice)) ?? 0m,
@@ -236,7 +256,7 @@ namespace AppPOS.Api.Controllers
                 join order in _context.Orders.AsNoTracking() on detail.OrderId equals order.OrderId
                 join product in _context.Products.AsNoTracking() on detail.ProductId equals product.ProductId
                 where order.SectionId == sectionId
-                    && order.Status == "COMPLETED"
+                    && order.Status != "CANCELLED"
                     && order.Date >= resolvedStart
                     && order.Date < endExclusive
                 select new

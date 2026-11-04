@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { ChartData, ChartOptions } from 'chart.js';
+import { RouterLink } from '@angular/router';
 import { BaseChartDirective } from 'ng2-charts';
 import { catchError, forkJoin, of } from 'rxjs';
 import { DashboardSummary, LowStockItem, ProfitTrendPoint, SalesTrendPoint } from '../../shared/models/pos.models';
@@ -10,7 +11,7 @@ import { DashboardService } from './services/dashboard.service';
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, BaseChartDirective],
+  imports: [CommonModule, BaseChartDirective, RouterLink],
   template: `
     <section class="space-y-4 p-4 md:p-6">
       <header class="flex flex-wrap items-end justify-between gap-3">
@@ -31,12 +32,45 @@ import { DashboardService } from './services/dashboard.service';
       }
 
       @if (summary(); as data) {
-        <div class="grid gap-3 sm:grid-cols-2">
+        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <article class="rounded-2xl border border-slate-200 border-l-4 border-l-indigo-500 bg-white p-5 shadow-sm">
             <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Ventas de hoy</p>
             <p class="mt-2 text-3xl font-black text-slate-900">{{ data.todaySalesTotal | currency:'COP':'symbol':'1.0-0' }}</p>
-            <p class="mt-1 text-xs text-slate-400">Monto vendido hoy en la unidad activa.</p>
+            <p class="mt-1 text-xs text-slate-400">Monto vendido hoy (contado y crédito).</p>
           </article>
+
+          <!-- POS-06: dinero que realmente entró hoy -->
+          <article class="rounded-2xl border border-slate-200 border-l-4 border-l-emerald-500 bg-white p-5 shadow-sm">
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Ingresado hoy</p>
+            <p class="mt-2 text-3xl font-black text-emerald-700">{{ data.todayCollectedTotal | currency:'COP':'symbol':'1.0-0' }}</p>
+            <p class="mt-1 text-xs text-slate-400">
+              @if (data.todayCreditCollectedTotal > 0) {
+                Incluye {{ data.todayCreditCollectedTotal | currency:'COP':'symbol':'1.0-0' }} de créditos cobrados.
+              } @else {
+                Ventas de contado y créditos cobrados hoy.
+              }
+            </p>
+          </article>
+
+          <!-- POS-06: cartera por cobrar (ventas a crédito pendientes) -->
+          <a
+            routerLink="/sales-history"
+            [queryParams]="{ status: 'PENDING' }"
+            class="block rounded-2xl border border-slate-200 border-l-4 border-l-amber-500 bg-white p-5 shadow-sm transition hover:border-amber-300 hover:shadow-md"
+            title="Ver ventas pendientes de pago"
+          >
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Por cobrar</p>
+            <p class="mt-2 text-3xl font-black" [class.text-amber-600]="data.pendingCreditTotal > 0" [class.text-slate-900]="data.pendingCreditTotal === 0">
+              {{ data.pendingCreditTotal | currency:'COP':'symbol':'1.0-0' }}
+            </p>
+            <p class="mt-1 text-xs text-slate-400">
+              @if (data.pendingCreditCount > 0) {
+                {{ data.pendingCreditCount }} {{ data.pendingCreditCount === 1 ? 'venta a crédito pendiente' : 'ventas a crédito pendientes' }} · <span class="font-semibold text-amber-700">Ver</span>
+              } @else {
+                Sin ventas a crédito pendientes.
+              }
+            </p>
+          </a>
 
           <article class="rounded-2xl border border-slate-200 border-l-4 border-l-violet-500 bg-white p-5 shadow-sm">
             <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Órdenes de hoy</p>
