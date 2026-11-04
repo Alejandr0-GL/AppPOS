@@ -156,7 +156,7 @@ namespace AppPOS.Api.Controllers
                 join product in _context.Products.AsNoTracking() on detail.ProductId equals product.ProductId
                 join customer in _context.Customers.AsNoTracking() on order.CustomerId equals customer.CustomerId
                 where detail.EmployeeId == id
-                    && order.Status == "COMPLETED"
+                    && order.Status != "CANCELLED"
                     && order.Date >= resolvedStart
                     && order.Date < endExclusive
                 select new

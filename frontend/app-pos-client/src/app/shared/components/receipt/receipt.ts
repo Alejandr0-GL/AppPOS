@@ -1,7 +1,8 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, inject, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 import { ReceiptData } from '../../models/receipt.models';
 import { EscPosPaperWidth, EscPosPrintService } from '../../services/escpos-print.service';
+import { receiptChangeLabel, receiptReceivedLabel, receiptStatusStamp } from '../../utils/receipt.mapper';
 
 type ReceiptPaper = '58' | '80';
 
@@ -237,8 +238,8 @@ type ReceiptPaper = '58' | '80';
             <div class="flex justify-between gap-2"><span class="receipt-summary-label">Cambio</span><span>{{ changeLabel() }}</span></div>
           </section>
 
-          @if (data().status !== 'COMPLETED') {
-            <p class="mt-2 border border-black py-1 text-center font-black uppercase">Documento {{ data().status }}</p>
+          @if (statusStamp()) {
+            <p class="mt-2 border border-black py-1 text-center font-black uppercase">{{ statusStamp() }}</p>
           }
 
           <footer class="mt-2 border-t border-dashed border-black pt-2 text-center">
@@ -259,6 +260,9 @@ export class ReceiptComponent {
   /** POS-05: impresión nativa ESC/POS vía WebUSB (window.print() queda como fallback). */
   readonly escpos = inject(EscPosPrintService);
   readonly printMessage = signal('');
+
+  /** Marca de estado en el ticket (solo si está pendiente de pago o anulada). */
+  readonly statusStamp = computed(() => receiptStatusStamp(this.data().status));
 
   constructor() {
     // Si ya hay una impresora autorizada para este origen se muestra sin pedir permiso.
@@ -325,11 +329,11 @@ export class ReceiptComponent {
   }
 
   receivedLabel(): string {
-    return this.data().receivedAmount == null ? 'No registrado' : this.money(this.data().receivedAmount);
+    return receiptReceivedLabel(this.data(), value => this.money(value));
   }
 
   changeLabel(): string {
-    return this.data().changeAmount == null ? '-' : this.money(this.data().changeAmount);
+    return receiptChangeLabel(this.data(), value => this.money(value));
   }
 
   money(value: number | null | undefined): string {

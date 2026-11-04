@@ -180,6 +180,8 @@ public partial class AppPosDbContext : DbContext
             entity.Property(e => e.ChangeAmount)
                 .HasColumnType("decimal(18, 2)")
                 .HasColumnName("change_amount");
+            entity.Property(e => e.PaidAt)
+                .HasColumnName("paid_at");
             entity.Property(e => e.InvoiceType)
                 .HasMaxLength(20)
                 .HasColumnName("invoice_type");

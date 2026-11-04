@@ -27,6 +27,12 @@ public partial class Order
     /// <summary>Cambio/devuelta calculado por el servidor: ReceivedAmount - TotalAmount.</summary>
     public decimal? ChangeAmount { get; set; }
 
+    /// <summary>
+    /// POS-06: fecha en que se cobró una venta a crédito (PENDING → PAID). Null en ventas
+    /// pagadas al momento (COMPLETED), cuyo ingreso se registra en <see cref="Date"/>.
+    /// </summary>
+    public DateTime? PaidAt { get; set; }
+
     public string InvoiceType { get; set; } = "POS";
 
     public string Status { get; set; } = null!;

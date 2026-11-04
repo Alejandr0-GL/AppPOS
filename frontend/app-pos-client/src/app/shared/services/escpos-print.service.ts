@@ -1,5 +1,6 @@
 import { Injectable, computed, signal } from '@angular/core';
 import { ReceiptData } from '../models/receipt.models';
+import { receiptChangeLabel, receiptReceivedLabel, receiptStatusStamp } from '../utils/receipt.mapper';
 
 export type EscPosPaperWidth = '58mm' | '80mm';
 
@@ -215,10 +216,11 @@ export function buildReceiptLines(data: ReceiptData, paperWidth: EscPosPaperWidt
 
   // Pago
   push(columns('Pago:', data.paymentMethod, width));
-  push(columns('Recibido:', data.receivedAmount == null ? 'No registrado' : money(data.receivedAmount), width));
-  push(columns('Cambio:', data.changeAmount == null ? '-' : money(data.changeAmount), width));
+  push(columns('Recibido:', receiptReceivedLabel(data, money), width));
+  push(columns('Cambio:', receiptChangeLabel(data, money), width));
 
-  if (data.status !== 'COMPLETED') push(data.status, { bold: true, align: 'center' });
+  const statusStamp = receiptStatusStamp(data.status);
+  if (statusStamp) push(statusStamp, { bold: true, align: 'center' });
   push(separator);
 
   // Pie

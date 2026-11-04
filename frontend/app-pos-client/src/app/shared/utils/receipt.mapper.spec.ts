@@ -1,6 +1,15 @@
 import { Order } from '../models/pos.models';
 import { COMPANY_INFO } from '../config/company.config';
-import { buildReceiptData, documentTypeLabel, paymentMethodLabel } from './receipt.mapper';
+import {
+  buildReceiptData,
+  documentTypeLabel,
+  isPendingPayment,
+  paymentMethodLabel,
+  receiptChangeLabel,
+  receiptReceivedLabel,
+  receiptStatusStamp,
+  statusLabel
+} from './receipt.mapper';
 
 function createOrder(overrides: Partial<Order> = {}): Order {
   return {
@@ -117,7 +126,43 @@ describe('receipt.mapper', () => {
     expect(documentTypeLabel(undefined)).toBe('Ticket POS / Factura de venta');
     expect(paymentMethodLabel('CASH')).toBe('Efectivo');
     expect(paymentMethodLabel('transfer')).toBe('Transferencia');
+    expect(paymentMethodLabel('CREDIT')).toBe('Crédito (pendiente)');
     expect(paymentMethodLabel('NEQUI')).toBe('NEQUI');
     expect(paymentMethodLabel(null)).toBe('No informado');
+  });
+
+  it('traduce los estados de la orden (POS-06)', () => {
+    expect(statusLabel('COMPLETED')).toBe('Completada');
+    expect(statusLabel('PAID')).toBe('Pagada');
+    expect(statusLabel('PENDING')).toBe('Pendiente de pago');
+    expect(statusLabel('CANCELLED')).toBe('Anulada');
+    expect(statusLabel(null)).toBe('Sin estado');
+    expect(statusLabel('OTRO')).toBe('OTRO');
+
+    expect(isPendingPayment('PENDING')).toBe(true);
+    expect(isPendingPayment('pending')).toBe(true);
+    expect(isPendingPayment('PAID')).toBe(false);
+    expect(isPendingPayment(null)).toBe(false);
+  });
+
+  it('estampa el estado solo cuando la venta está pendiente o anulada', () => {
+    expect(receiptStatusStamp('PENDING')).toBe('PENDIENTE DE PAGO');
+    expect(receiptStatusStamp('CANCELLED')).toBe('DOCUMENTO ANULADO');
+    expect(receiptStatusStamp('COMPLETED')).toBeNull();
+    expect(receiptStatusStamp('PAID')).toBeNull();
+  });
+
+  it('muestra "Pendiente" en Recibido/Cambio mientras la venta a crédito no se cobra', () => {
+    const money = (value: number) => `$ ${value}`;
+
+    expect(receiptReceivedLabel({ status: 'PENDING', receivedAmount: 0 }, money)).toBe('Pendiente');
+    expect(receiptChangeLabel({ status: 'PENDING', changeAmount: 0 }, money)).toBe('Pendiente');
+
+    // Una vez cobrada (PAID) se muestran los montos reales.
+    expect(receiptReceivedLabel({ status: 'PAID', receivedAmount: 120000 }, money)).toBe('$ 120000');
+    expect(receiptChangeLabel({ status: 'PAID', changeAmount: 1000 }, money)).toBe('$ 1000');
+
+    expect(receiptReceivedLabel({ status: 'COMPLETED', receivedAmount: null }, money)).toBe('No registrado');
+    expect(receiptChangeLabel({ status: 'COMPLETED', changeAmount: null }, money)).toBe('-');
   });
 });

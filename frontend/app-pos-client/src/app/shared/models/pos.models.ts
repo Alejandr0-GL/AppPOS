@@ -54,6 +54,8 @@ export interface OrderSummary {
   paymentMethod?: string;
   receivedAmount?: number | null;
   changeAmount?: number | null;
+  /** POS-06: fecha de cobro de una venta a crédito (solo PAID). */
+  paidAt?: string | null;
   invoiceType: 'POS' | 'ELECTRONIC' | string;
   status: string;
   customer?: Pick<Customer, 'customerId' | 'name' | 'documentNumber'> | null;
@@ -81,6 +83,22 @@ export interface OrderDetail {
 export interface Order extends OrderSummary {
   customer?: Customer | null;
   details: OrderDetail[];
+}
+
+/** POS-06: cobro de una venta a crédito (PENDING → PAID). */
+export interface PayOrderRequest {
+  paymentMethod: 'CASH' | 'TRANSFER' | string;
+  receivedAmount?: number | null;
+}
+
+export interface PayOrderResponse {
+  message: string;
+  orderId: number;
+  status: string;
+  paymentMethod: string;
+  totalAmount: number;
+  receivedAmount?: number | null;
+  changeAmount?: number | null;
 }
 
 export interface Inventory {
@@ -170,6 +188,13 @@ export interface DashboardSummary {
   outOfStockCount: number;
   todaySalesTotal: number;
   todayOrdersCount: number;
+  /** POS-06: contado vendido hoy + créditos cobrados hoy. */
+  todayCollectedTotal: number;
+  /** POS-06: parte del ingreso de hoy que viene de créditos cobrados. */
+  todayCreditCollectedTotal: number;
+  /** POS-06: saldo total por cobrar (ventas PENDING). */
+  pendingCreditTotal: number;
+  pendingCreditCount: number;
 }
 
 export interface SalesTrendPoint {
