@@ -20,10 +20,12 @@ const receipt: ReceiptData = {
   customerAddress: 'Calle 10 # 20-30',
   customerPhone: '3001234567',
   items: [
-    { quantity: 2, name: 'Cambio de aceite', sku: 'SRV-ACEITE', unitPrice: 50000, subtotal: 119000, taxAmount: 19000 }
+    { quantity: 2, name: 'Cambio de aceite', sku: 'SRV-ACEITE', unitPrice: 50000, subtotal: 100000, taxAmount: 19000, taxLabel: 'IVA 19%' }
   ],
   subtotal: 100000,
   taxAmount: 19000,
+  showTax: true,
+  taxBreakdown: [{ label: 'IVA 19%', base: 100000, amount: 19000 }],
   discount: 0,
   total: 119000,
   paymentMethod: 'Efectivo',
@@ -139,6 +141,34 @@ describe('escpos-print.service', () => {
     expect(text).toContain('Credito (pendiente)');
     expect(text).toMatch(/Recibido:\s+Pendiente/);
     expect(text).toMatch(/Cambio:\s+Pendiente/);
+  });
+
+  it('INV-01: factura electrónica imprime el IVA por tarifa', () => {
+    const text = printableText(buildEscPosReceipt(receipt, '58mm'));
+
+    expect(text).toMatch(/IVA 19%:\s+\$ 19\.000/);
+    expect(text).toContain('IVA 19%');
+  });
+
+  it('INV-01: imprime la placa sólo si se registró', () => {
+    expect(printableText(buildEscPosReceipt({ ...receipt, vehiclePlate: 'ABC123' }, '58mm'))).toMatch(/Placa:\s+ABC123/);
+    expect(printableText(buildEscPosReceipt(receipt, '58mm'))).not.toContain('Placa');
+  });
+
+  it('INV-01: factura de venta no imprime IVA', () => {
+    const sale: ReceiptData = {
+      ...receipt,
+      items: [{ ...receipt.items[0], taxAmount: 0, taxLabel: null }],
+      taxAmount: 0,
+      showTax: false,
+      taxBreakdown: [],
+      total: 100000
+    };
+
+    const text = printableText(buildEscPosReceipt(sale, '58mm'));
+
+    expect(text).not.toContain('IVA');
+    expect(text).toMatch(/Subtotal:\s+\$ 100\.000/);
   });
 
   it('imprime recibido y cambio reales cuando la venta a crédito ya fue pagada', () => {

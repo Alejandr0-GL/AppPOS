@@ -1,6 +1,7 @@
 import { Order } from '../models/pos.models';
 import { ReceiptData } from '../models/receipt.models';
 import { COMPANY_INFO, RECEIPT_MESSAGES } from '../config/company.config';
+import { FINAL_CONSUMER_DOCUMENT, groupTaxes, roundMoney, taxLabel } from './invoice-tax';
 
 const PAYMENT_LABELS: Record<string, string> = {
   CASH: 'Efectivo',
@@ -88,8 +89,19 @@ export function receiptChangeLabel(data: Pick<ReceiptData, 'status' | 'changeAmo
 
 /** Transforma una orden (POS o historial) en los datos que consume el recibo térmico. */
 export function buildReceiptData(order: Order): ReceiptData {
-  const taxAmount = order.details.reduce((total, detail) => total + Number(detail.taxAmount ?? 0), 0);
+  const taxAmount = roundMoney(order.details.reduce((total, detail) => total + Number(detail.taxAmount ?? 0), 0));
   const total = Number(order.totalAmount ?? 0);
+  const isElectronic = (order.invoiceType ?? '').toUpperCase() === 'ELECTRONIC';
+  // Dirección/teléfono/tipo de documento sólo si la venta está a nombre de un cliente guardado.
+  const savedCustomer = !!order.customer && order.customer.documentNumber !== FINAL_CONSUMER_DOCUMENT;
+
+  // INV-01: etiqueta del impuesto de cada línea (tarifa congelada al vender).
+  const lineTaxes = order.details.map(detail => {
+    const amount = Number(detail.taxAmount ?? 0);
+    const base = Number(detail.subtotal ?? 0) - amount;
+    const percentage = Number(detail.appliedTaxPercentage ?? 0) || (amount > 0 && base > 0 ? roundMoney(amount * 100 / base) : 0);
+    return { label: amount > 0 ? taxLabel(detail.taxName, percentage) : '', percentage, base, amount };
+  });
 
   return {
     company: COMPANY_INFO,
@@ -98,22 +110,28 @@ export function buildReceiptData(order: Order): ReceiptData {
     issuedAt: order.date ? new Date(order.date) : new Date(),
     cashier: order.user?.username || 'Cajero',
     sectionName: order.section?.name || 'Principal',
-    customerName: order.customer?.name || 'Consumidor final',
-    customerDocumentType: customerDocumentTypeLabel(order.customer?.documentType),
-    customerDocumentNumber: order.customer?.documentNumber || 'Sin documento',
-    customerAddress: order.customer?.address ?? null,
-    customerPhone: order.customer?.phone ?? null,
-    items: order.details.map(detail => ({
+    // INV-01: "a nombre de" y documento congelados en la venta (el cliente puede no estar guardado).
+    customerName: order.customerName?.trim() || order.customer?.name || 'Consumidor final',
+    customerDocumentType: savedCustomer ? customerDocumentTypeLabel(order.customer?.documentType) : 'Doc.',
+    customerDocumentNumber: order.customerDocument?.trim() || (savedCustomer ? order.customer?.documentNumber : null) || 'Sin documento',
+    customerAddress: savedCustomer ? order.customer?.address ?? null : null,
+    customerPhone: savedCustomer ? order.customer?.phone ?? null : null,
+    vehiclePlate: order.vehiclePlate?.trim() || null,
+    items: order.details.map((detail, index) => ({
       quantity: detail.quantity,
       // POS-07: los ítems "Otros" se imprimen con la descripción escrita en la venta.
       name: detail.description?.trim() || detail.product?.name || `Producto #${detail.productId}`,
       sku: detail.product?.sku ?? null,
       unitPrice: Number(detail.unitPrice ?? 0),
-      subtotal: Number(detail.subtotal ?? 0),
-      taxAmount: Number(detail.taxAmount ?? 0)
+      // INV-01: la línea muestra el valor sin impuesto; el impuesto va en el desglose.
+      subtotal: roundMoney(lineTaxes[index].base),
+      taxAmount: lineTaxes[index].amount,
+      taxLabel: lineTaxes[index].label || null
     })),
-    subtotal: total - taxAmount,
+    subtotal: roundMoney(total - taxAmount),
     taxAmount,
+    showTax: isElectronic || taxAmount > 0,
+    taxBreakdown: groupTaxes(lineTaxes).map(({ label, base, amount }) => ({ label, base, amount })),
     discount: 0,
     total,
     paymentMethod: paymentMethodLabel(order.paymentMethod),

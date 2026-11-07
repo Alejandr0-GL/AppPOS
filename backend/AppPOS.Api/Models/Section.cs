@@ -24,4 +24,7 @@ public partial class Section
 
     [JsonIgnore]
     public virtual ICollection<StockMovement> StockMovements { get; set; } = new List<StockMovement>();
+
+    [JsonIgnore]
+    public virtual ICollection<Expense> Expenses { get; set; } = new List<Expense>();
 }

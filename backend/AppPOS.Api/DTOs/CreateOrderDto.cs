@@ -29,7 +29,21 @@
     public class CreateOrderDto
     {
         public int UserId { get; set; } // Identifica al cajero/usuario que realiza la venta
-        public int CustomerId { get; set; }
+
+        /// <summary>
+        /// Cliente guardado (frecuente). INV-01: opcional; si no se envía, la venta queda en
+        /// "Consumidor Final" con el nombre/documento escritos en <see cref="CustomerName"/>.
+        /// </summary>
+        public int? CustomerId { get; set; }
+
+        /// <summary>INV-01: "a nombre de" (≤ 100). Si se omite, se usa el nombre del cliente o "Consumidor final".</summary>
+        public string? CustomerName { get; set; }
+
+        /// <summary>INV-01: documento CC/NIT (≤ 30), opcional. El POS no lo pide: sale del cliente guardado.</summary>
+        public string? CustomerDocument { get; set; }
+
+        /// <summary>INV-01: placa del vehículo (opcional). Se normaliza a mayúsculas sin espacios ni guiones.</summary>
+        public string? VehiclePlate { get; set; }
         public int SectionId { get; set; }
         public string? PaymentMethod { get; set; }
 

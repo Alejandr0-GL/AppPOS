@@ -10,6 +10,16 @@ import { ReceiptComponent } from '../../shared/components/receipt/receipt';
 import { ReceiptData } from '../../shared/models/receipt.models';
 import { buildReceiptData } from '../../shared/utils/receipt.mapper';
 import { productImageSrc } from '../../shared/utils/product-image';
+import {
+  InvoiceType,
+  applicableTaxPercentage,
+  electronicInvoiceCustomerError,
+  groupTaxes,
+  lineTaxAmount,
+  normalizePlate,
+  roundMoney,
+  taxLabel
+} from '../../shared/utils/invoice-tax';
 
 interface QuickCustomerForm {
   name: string;
@@ -120,15 +130,39 @@ interface QuickCustomerForm {
       <!-- PANEL DERECHO: Carrito Aislado y Cobro -->
       <div class="w-96 bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col h-full">
         
-        <!-- Búsqueda Dinámica Autocomplete de Cliente (POS-01) -->
+        <!--
+          INV-01: placa + "a nombre de" en texto libre. No hace falta que el cliente esté en Clientes
+          (ahí sólo van los frecuentes): al escribir el nombre se sugieren los guardados.
+        -->
         <div class="p-4 border-b border-slate-200 bg-slate-50/50 rounded-t-2xl relative">
-          <label class="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Cliente</label>
-          
-          @if (!selectedCustomer()) {
-            <div class="relative">
-              <div class="flex gap-2"><input type="text" [(ngModel)]="customerSearchQuery" (input)="onCustomerSearchInput()" placeholder="Escribe Cédula o Nombre..." class="min-w-0 flex-1 px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-sm outline-none focus:border-indigo-500" /><button type="button" (click)="openQuickCustomer()" class="w-9 rounded-lg bg-slate-900 text-lg font-bold text-white" aria-label="Crear cliente">+</button></div>
-              
-              <!-- Desplegable dinámico de sugerencias -->
+          <div class="grid grid-cols-[6.5rem_1fr] gap-2">
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-500">Placa
+              <input
+                type="text"
+                [ngModel]="vehiclePlate()"
+                (ngModelChange)="vehiclePlate.set(normalizePlate($event))"
+                maxlength="10"
+                placeholder="ABC123"
+                aria-label="Placa del vehículo (opcional)"
+                class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 font-mono text-sm font-bold uppercase tracking-wider text-slate-800 outline-none placeholder:font-normal placeholder:text-slate-300 focus:border-indigo-500" />
+            </label>
+
+            <div class="block min-w-0 text-xs font-bold uppercase tracking-wider text-slate-500">A nombre de
+              @if (!selectedCustomer()) {
+                <div class="relative mt-1">
+                  <div class="flex gap-2">
+                    <input
+                      type="text"
+                      [ngModel]="customerName()"
+                      (ngModelChange)="onCustomerNameInput($event)"
+                      maxlength="100"
+                      placeholder="Consumidor final"
+                      aria-label="A nombre de quién sale la factura"
+                      class="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-normal normal-case tracking-normal text-slate-800 outline-none focus:border-indigo-500" />
+                    <button type="button" (click)="openQuickCustomer()" class="w-9 rounded-lg bg-slate-900 text-lg font-bold text-white transition-colors hover:bg-indigo-600" title="Guardar un cliente frecuente" aria-label="Crear cliente frecuente">+</button>
+                  </div>
+
+              <!-- Desplegable de clientes frecuentes guardados -->
               @if (customerSearchResults().length > 0) {
                 <div class="absolute z-20 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto divide-y divide-slate-100">
                   @for (cust of customerSearchResults(); track cust.customerId) {
@@ -139,22 +173,23 @@ interface QuickCustomerForm {
                         <span class="font-bold text-slate-800 block">{{ cust.name }}</span>
                         <span class="text-slate-400">Doc: {{ cust.documentNumber }}</span>
                       </div>
-                      <span class="text-indigo-600 font-semibold text-[10px] bg-indigo-100 px-1.5 py-0.5 rounded">Seleccionar</span>
                     </div>
                   }
                 </div>
               }
+                </div>
+              } @else {
+                <!-- Cliente frecuente seleccionado -->
+                <div class="mt-1 flex items-center justify-between rounded-lg border border-indigo-100 bg-indigo-50 px-2.5 py-1 text-xs font-semibold normal-case tracking-normal text-indigo-700">
+                  <div class="min-w-0">
+                    <span class="block truncate font-bold text-indigo-900">{{ selectedCustomer()?.name }}</span>
+                    <span class="font-normal text-indigo-500">Doc: {{ selectedCustomer()?.documentNumber }}</span>
+                  </div>
+                  <button type="button" (click)="removeCustomer()" class="p-1 font-bold text-slate-400 hover:text-red-500" aria-label="Quitar cliente">✕</button>
+                </div>
+              }
             </div>
-          } @else {
-            <!-- Tarjeta del Cliente Seleccionado -->
-            <div class="text-xs font-semibold text-indigo-700 bg-indigo-50 p-2.5 rounded-xl border border-indigo-100 flex justify-between items-center">
-              <div>
-                <span class="font-bold block text-indigo-900">{{ selectedCustomer()?.name }}</span>
-                <span class="text-indigo-500 font-normal">Doc: {{ selectedCustomer()?.documentNumber }}</span>
-              </div>
-              <button (click)="removeCustomer()" class="text-slate-400 hover:text-red-500 p-1 font-bold">✕</button>
-            </div>
-          }
+          </div>
         </div>
 
         <!-- Lista del Carrito -->
@@ -168,6 +203,10 @@ interface QuickCustomerForm {
                   <span class="text-xs" [class.text-slate-400]="!isPriceChanged(item)" [class.font-semibold]="isPriceChanged(item)" [class.text-amber-600]="isPriceChanged(item)">\${{ (item.unitPrice ?? 0) | number:'1.0-0' }} c/u</span>
                   @if (item.product.isOpenItem && item.unitCost) {
                     <span class="text-xs text-slate-400">· costo \${{ item.unitCost | number:'1.0-0' }}</span>
+                  }
+                  <!-- INV-01: en factura electrónica se indica el impuesto que se suma a la línea -->
+                  @if (lineTaxPercentage(item) > 0) {
+                    <span class="rounded bg-sky-50 px-1 text-[10px] font-bold text-sky-700" [title]="'Se suma ' + lineTaxLabel(item) + ' al total'">+ {{ lineTaxLabel(item) }}</span>
                   }
                   @if (isPriceChanged(item)) {
                     <button
@@ -239,25 +278,44 @@ interface QuickCustomerForm {
           <div class="flex gap-2">
             <button
               type="button"
-              (click)="invoiceType = 'POS'"
-              [attr.aria-pressed]="invoiceType === 'POS'"
-              [class]="toggleButtonClass(invoiceType === 'POS', 'text-xs')">
+              (click)="setInvoiceType('POS')"
+              [attr.aria-pressed]="invoiceType() === 'POS'"
+              [class]="toggleButtonClass(invoiceType() === 'POS', 'text-xs')">
               Factura de venta
             </button>
             <button
               type="button"
-              (click)="invoiceType = 'ELECTRONIC'"
-              [attr.aria-pressed]="invoiceType === 'ELECTRONIC'"
-              [class]="toggleButtonClass(invoiceType === 'ELECTRONIC', 'text-xs')">
+              (click)="setInvoiceType('ELECTRONIC')"
+              [attr.aria-pressed]="invoiceType() === 'ELECTRONIC'"
+              [class]="toggleButtonClass(invoiceType() === 'ELECTRONIC', 'text-xs')">
               Factura Electrónica
             </button>
           </div>
 
+          <!-- INV-01: la factura electrónica exige un cliente identificado y con correo -->
+          @if (electronicCustomerError(); as customerError) {
+            <p class="rounded-lg bg-amber-50 px-3 py-2 text-[11px] font-bold leading-snug text-amber-700 ring-1 ring-amber-200" role="alert">{{ customerError }}</p>
+          }
+
           <div class="space-y-1 pt-2 border-t border-slate-200 text-sm">
             <div class="flex justify-between text-slate-500">
               <span>Subtotal</span>
-              <span>\${{ cartTotal() | number:'1.2-2' }}</span>
+              <span>\${{ cartSubtotal() | number:'1.2-2' }}</span>
             </div>
+            <!-- INV-01: desglose del impuesto sólo en factura electrónica -->
+            @if (invoiceType() === 'ELECTRONIC') {
+              @for (tax of cartTaxBreakdown(); track tax.label) {
+                <div class="flex justify-between text-slate-500">
+                  <span>{{ tax.label }} <span class="text-[11px] text-slate-400">(base \${{ tax.base | number:'1.0-0' }})</span></span>
+                  <span>\${{ tax.amount | number:'1.2-2' }}</span>
+                </div>
+              } @empty {
+                <div class="flex justify-between text-slate-400">
+                  <span>IVA / Impuestos</span>
+                  <span>\$0.00</span>
+                </div>
+              }
+            }
             <div class="flex justify-between text-lg font-black text-slate-900 pt-1 border-t border-slate-200">
               <span>Total Pagar</span>
               <span class="text-emerald-600">\${{ cartTotal() | number:'1.2-2' }}</span>
@@ -326,7 +384,7 @@ interface QuickCustomerForm {
           </div>
 
           <button 
-            [disabled]="cart().length === 0 || !selectedCustomer() || processingSale() || (paymentMethod === 'CASH' && cashReceived !== null && cashDifference < 0)"
+            [disabled]="cart().length === 0 || processingSale() || !!electronicCustomerError() || (paymentMethod === 'CASH' && cashReceived !== null && cashDifference < 0)"
             (click)="checkout()"
             class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-bold rounded-xl shadow-lg transition-all text-center">
             {{ processingSale() ? 'Procesando venta...' : 'Procesar Venta' }}
@@ -393,15 +451,21 @@ export class PosComponent implements OnInit {
   cart = this.posService.cartItems;
   
   // Cliente & Búsqueda reactiva
+  /** Cliente frecuente elegido de Clientes (opcional). */
   selectedCustomer = signal<Customer | null>(null);
-  customerSearchQuery = '';
+  /** INV-01: "a nombre de" escrito a mano cuando no se elige un cliente guardado. */
+  readonly customerName = signal('');
+  /** INV-01: placa del vehículo (opcional), ya normalizada. */
+  readonly vehiclePlate = signal('');
+  readonly normalizePlate = normalizePlate;
   customerSearchResults = signal<Customer[]>([]);
   private customerSearchSubject = new Subject<string>();
   customerModalOpen = signal(false);
   quickCustomer: QuickCustomerForm = this.emptyQuickCustomer();
 
   searchQuery = '';
-  invoiceType: 'POS' | 'ELECTRONIC' = 'POS';
+  /** INV-01: signal para que los totales (con o sin IVA) se recalculen al cambiar el tipo de factura. */
+  readonly invoiceType = signal<InvoiceType>('POS');
 
   // POS-05: cobro en efectivo/transferencia y recibo impreso
   // POS-06: 'CREDIT' registra la venta como pendiente de pago (sin monto recibido)
@@ -420,9 +484,50 @@ export class PosComponent implements OnInit {
     this.loadProductsForSection(sectionId);
   });
 
-  cartTotal = computed(() => {
-    return this.cart().reduce((acc, item) => acc + ((item.unitPrice ?? 0) * item.quantity), 0);
+  /** Suma de precios sin impuesto (base). */
+  cartSubtotal = computed(() => {
+    return this.cart().reduce((acc, item) => acc + this.lineBase(item), 0);
   });
+
+  /**
+   * INV-01: desglose del impuesto por tarifa. Sólo hay impuesto en factura electrónica
+   * (misma regla y redondeo que el servidor); en factura de venta queda vacío.
+   */
+  cartTaxBreakdown = computed(() => {
+    const invoiceType = this.invoiceType();
+    return groupTaxes(this.cart().map(item => {
+      const percentage = applicableTaxPercentage(invoiceType, item.product);
+      const base = this.lineBase(item);
+      return { label: taxLabel(item.product.tax?.name, percentage), percentage, base, amount: lineTaxAmount(base, percentage) };
+    }));
+  });
+
+  cartTax = computed(() => roundMoney(this.cartTaxBreakdown().reduce((acc, tax) => acc + tax.amount, 0)));
+
+  /** Total a pagar: base + impuesto (el impuesto sólo existe en factura electrónica). */
+  cartTotal = computed(() => roundMoney(this.cartSubtotal() + this.cartTax()));
+
+  /** INV-01: motivo por el que no se puede emitir la factura electrónica con el cliente actual. */
+  electronicCustomerError = computed(() => {
+    if (this.invoiceType() !== 'ELECTRONIC' || this.cart().length === 0) return null;
+    return electronicInvoiceCustomerError(this.selectedCustomer()?.name ?? this.customerName());
+  });
+
+  setInvoiceType(type: InvoiceType): void {
+    this.invoiceType.set(type);
+  }
+
+  lineTaxPercentage(item: CartItem): number {
+    return applicableTaxPercentage(this.invoiceType(), item.product);
+  }
+
+  lineTaxLabel(item: CartItem): string {
+    return taxLabel(item.product.tax?.name, this.lineTaxPercentage(item));
+  }
+
+  private lineBase(item: CartItem): number {
+    return (item.unitPrice ?? 0) * item.quantity;
+  }
 
   /** Diferencia entre el efectivo recibido y el total (negativa = falta dinero). */
   get cashDifference(): number {
@@ -490,7 +595,8 @@ export class PosComponent implements OnInit {
       debounceTime(300),
       distinctUntilChanged(),
       switchMap(query => {
-        if (!query.trim()) return of([]);
+        // Se sugieren clientes guardados a partir de 2 letras/dígitos.
+        if (query.trim().length < 2) return of([]);
         return this.posService.searchCustomers(query);
       })
     ).subscribe({
@@ -499,18 +605,27 @@ export class PosComponent implements OnInit {
     });
   }
 
-  onCustomerSearchInput() {
-    this.customerSearchSubject.next(this.customerSearchQuery);
+  /** INV-01: el nombre escrito se guarda tal cual y además busca clientes frecuentes. */
+  onCustomerNameInput(value: string) {
+    this.customerName.set(value ?? '');
+    this.customerSearchSubject.next(value ?? '');
   }
 
   selectCustomer(customer: Customer) {
     this.selectedCustomer.set(customer);
     this.customerSearchResults.set([]);
-    this.customerSearchQuery = '';
+    this.customerName.set('');
   }
 
   removeCustomer() {
     this.selectedCustomer.set(null);
+  }
+
+  private resetSaleCustomer(): void {
+    this.selectedCustomer.set(null);
+    this.customerName.set('');
+    this.vehiclePlate.set('');
+    this.customerSearchResults.set([]);
   }
 
   openQuickCustomer() {
@@ -803,11 +918,17 @@ export class PosComponent implements OnInit {
 
   checkout() {
     const customer = this.selectedCustomer();
-    if (!customer || this.processingSale()) return;
+    if (this.processingSale()) return;
 
     const pendingEmployees = this.cart().filter(item => this.requiresEmployee(item.product) && !item.employeeId);
     if (pendingEmployees.length > 0) {
       alert(`Asigna un técnico responsable para: ${pendingEmployees.map(item => item.product.name).join(', ')}.`);
+      return;
+    }
+
+    const customerError = this.electronicCustomerError();
+    if (customerError) {
+      alert(customerError);
       return;
     }
 
@@ -828,11 +949,14 @@ export class PosComponent implements OnInit {
 
     const orderDto: CreateOrderDto = {
       userId: 1,
-      customerId: customer.customerId,
+      // INV-01: cliente frecuente (con su documento) o, si no, "Consumidor Final" con el nombre escrito.
+      customerId: customer?.customerId ?? null,
+      customerName: customer ? null : (this.customerName().trim() || null),
+      vehiclePlate: this.vehiclePlate() || null,
       sectionId: this.selectedSectionId(),
       paymentMethod: this.paymentMethod,
       receivedAmount,
-      invoiceType: this.invoiceType,
+      invoiceType: this.invoiceType(),
       details: this.cart().map(item => ({
         productId: item.product.productId,
         sectionId: item.sectionId,
@@ -856,7 +980,7 @@ export class PosComponent implements OnInit {
         this.cart.set([]);
         this.priceChangeReason = '';
         this.editingPriceIndex.set(null);
-        this.selectedCustomer.set(null);
+        this.resetSaleCustomer();
         this.cashReceived = null;
         // POS-05: se abre automáticamente la vista previa del recibo de la venta.
         this.openReceipt(res.orderId);

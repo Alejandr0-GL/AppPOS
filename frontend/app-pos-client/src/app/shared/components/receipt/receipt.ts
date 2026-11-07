@@ -57,6 +57,9 @@ type ReceiptPaper = '58' | '80';
               Orden <span class="font-bold text-slate-700">#{{ data().orderNumber }}</span>
               · {{ data().issuedAt | date:'dd/MM/yyyy HH:mm' }}
             </p>
+            <p class="mt-0.5 text-sm text-slate-500">
+              {{ data().customerName }}@if (data().vehiclePlate) { · Placa <span class="font-bold text-slate-700">{{ data().vehiclePlate }}</span> }
+            </p>
           </header>
 
           <!-- Resumen financiero -->
@@ -94,14 +97,22 @@ type ReceiptPaper = '58' | '80';
                 <li class="flex items-center justify-between gap-3 px-3 py-2">
                   <span class="min-w-0">
                     <span class="block truncate text-sm font-semibold text-slate-800">{{ item.name }}</span>
-                    <span class="block text-[11px] text-slate-400">{{ item.quantity }} × {{ money(item.unitPrice) }}</span>
+                    <span class="block text-[11px] text-slate-400">{{ item.quantity }} × {{ money(item.unitPrice) }}@if (data().showTax && item.taxLabel) { · + {{ item.taxLabel }} }</span>
                   </span>
                   <span class="whitespace-nowrap text-sm font-bold text-slate-700">{{ money(item.subtotal) }}</span>
                 </li>
               }
             </ul>
-            @if (data().taxAmount > 0) {
-              <p class="mt-2 text-right text-[11px] font-semibold text-slate-400">IVA incluido: {{ money(data().taxAmount) }}</p>
+            <!-- INV-01: desglose del impuesto sólo en factura electrónica -->
+            @if (data().showTax) {
+              <div class="mt-2 space-y-0.5 text-right text-[11px] font-semibold text-slate-500">
+                <p>Subtotal: {{ money(data().subtotal) }}</p>
+                @for (tax of data().taxBreakdown; track tax.label) {
+                  <p>{{ tax.label }}: {{ money(tax.amount) }}</p>
+                } @empty {
+                  <p>IVA: {{ money(0) }}</p>
+                }
+              </div>
             }
           </section>
 
@@ -179,6 +190,9 @@ type ReceiptPaper = '58' | '80';
             <div class="flex justify-between gap-2"><span class="receipt-summary-label">Fecha</span><span>{{ data().issuedAt | date:'dd/MM/yyyy HH:mm' }}</span></div>
             <div class="flex justify-between gap-2"><span class="receipt-summary-label">Cajero</span><span class="text-right">{{ data().cashier }}</span></div>
             <div class="flex justify-between gap-2"><span class="receipt-summary-label">Unidad</span><span class="text-right">{{ data().sectionName }}</span></div>
+            @if (data().vehiclePlate) {
+              <div class="flex justify-between gap-2"><span class="receipt-summary-label">Placa</span><span class="font-bold">{{ data().vehiclePlate }}</span></div>
+            }
           </section>
 
           <section class="mt-2 border-t border-dashed border-black pt-1">
@@ -214,6 +228,9 @@ type ReceiptPaper = '58' | '80';
                     @if (item.sku) {
                       <span class="receipt-sku block text-[10px] normal-case text-slate-500">{{ item.sku }}</span>
                     }
+                    @if (data().showTax && item.taxLabel) {
+                      <span class="block text-[10px] normal-case">+ {{ item.taxLabel }}</span>
+                    }
                   </td>
                   <td class="whitespace-nowrap py-0.5 text-right align-top">{{ money(item.unitPrice) }}</td>
                   <td class="whitespace-nowrap py-0.5 text-right align-top">{{ money(item.subtotal) }}</td>
@@ -224,7 +241,14 @@ type ReceiptPaper = '58' | '80';
 
           <section class="mt-2 border-t border-dashed border-black pt-1">
             <div class="flex justify-between gap-2"><span class="receipt-summary-label">Subtotal</span><span>{{ money(data().subtotal) }}</span></div>
-            <div class="flex justify-between gap-2"><span class="receipt-summary-label">IVA / Impuestos</span><span>{{ money(data().taxAmount) }}</span></div>
+            <!-- INV-01: el impuesto sólo se imprime en factura electrónica (por tarifa) -->
+            @if (data().showTax) {
+              @for (tax of data().taxBreakdown; track tax.label) {
+                <div class="flex justify-between gap-2"><span class="receipt-summary-label">{{ tax.label }}</span><span>{{ money(tax.amount) }}</span></div>
+              } @empty {
+                <div class="flex justify-between gap-2"><span class="receipt-summary-label">IVA</span><span>{{ money(0) }}</span></div>
+              }
+            }
             <div class="flex justify-between gap-2"><span class="receipt-summary-label">Descuentos</span><span>{{ money(data().discount) }}</span></div>
             <div class="mt-1 flex justify-between gap-2 border-t border-black pt-1 text-[14px] font-black">
               <span>TOTAL</span>

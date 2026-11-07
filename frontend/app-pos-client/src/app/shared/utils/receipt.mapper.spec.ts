@@ -76,7 +76,7 @@ describe('receipt.mapper', () => {
     expect(receipt.total).toBe(119000);
   });
 
-  it('copia los ítems vendidos con su precio unitario y subtotal', () => {
+  it('copia los ítems vendidos con su precio unitario y el valor de la línea sin impuesto', () => {
     const receipt = buildReceiptData(createOrder());
 
     expect(receipt.items.length).toBe(1);
@@ -85,9 +85,50 @@ describe('receipt.mapper', () => {
       name: 'Cambio de aceite',
       sku: 'SRV-ACEITE',
       unitPrice: 50000,
-      subtotal: 119000,
-      taxAmount: 19000
+      subtotal: 100000,
+      taxAmount: 19000,
+      taxLabel: 'IVA 19%'
     });
+  });
+
+  it('INV-01: factura electrónica muestra el IVA desglosado por tarifa', () => {
+    const receipt = buildReceiptData(createOrder({
+      invoiceType: 'ELECTRONIC',
+      details: [
+        { orderDetailId: 1, productId: 10, quantity: 2, unitPrice: 50000, unitCost: 0, taxAmount: 19000, appliedTaxPercentage: 19, taxName: 'IVA 19%', subtotal: 119000 },
+        { orderDetailId: 2, productId: 11, quantity: 1, unitPrice: 20000, unitCost: 0, taxAmount: 0, appliedTaxPercentage: 0, taxName: null, subtotal: 20000 }
+      ],
+      totalAmount: 139000
+    }));
+
+    expect(receipt.showTax).toBe(true);
+    expect(receipt.subtotal).toBe(120000);
+    expect(receipt.taxBreakdown).toEqual([{ label: 'IVA 19%', base: 100000, amount: 19000 }]);
+    expect(receipt.items[1].taxLabel).toBeNull();
+  });
+
+  it('INV-01: factura de venta sin impuesto no muestra IVA', () => {
+    const receipt = buildReceiptData(createOrder({
+      totalAmount: 100000,
+      details: [{ orderDetailId: 1, productId: 10, quantity: 2, unitPrice: 50000, unitCost: 0, taxAmount: 0, subtotal: 100000 }]
+    }));
+
+    expect(receipt.showTax).toBe(false);
+    expect(receipt.taxBreakdown).toEqual([]);
+    expect(receipt.subtotal).toBe(100000);
+  });
+
+  it('INV-01: usa el nombre, documento y placa escritos en la venta (cliente no guardado)', () => {
+    const receipt = buildReceiptData(createOrder({
+      customerName: 'Taller ABC SAS',
+      customerDocument: '900123456',
+      vehiclePlate: 'ABC123',
+      customer: { customerId: 3, name: 'Consumidor Final', documentNumber: '222222222222', documentType: 'CC', city: 'Medellín', department: 'Antioquia', address: 'No aplica' }
+    }));
+    expect(receipt.customerName).toBe('Taller ABC SAS');
+    expect(receipt.customerDocumentNumber).toBe('900123456');
+    expect(receipt.customerAddress).toBeNull();
+    expect(receipt.vehiclePlate).toBe('ABC123');
   });
 
   it('mantiene efectivo recibido y cambio, y los deja nulos cuando no aplican', () => {

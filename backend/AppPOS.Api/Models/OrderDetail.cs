@@ -40,8 +40,19 @@ public partial class OrderDetail
 
     public decimal LocalProfitAmount { get; set; }
 
+    /// <summary>Impuesto total de la línea (cantidad × precio × tarifa). Sólo en factura electrónica.</summary>
     public decimal TaxAmount { get; set; }
 
+    /// <summary>
+    /// INV-01: tarifa del impuesto congelada al vender (p. ej. 19). 0 en factura de venta,
+    /// en ítems "Otros" o si el producto no tiene impuesto.
+    /// </summary>
+    public decimal AppliedTaxPercentage { get; set; }
+
+    /// <summary>INV-01: nombre del impuesto congelado al vender (p. ej. "IVA 19%"). Null si no se cobró impuesto.</summary>
+    public string? TaxName { get; set; }
+
+    /// <summary>Total de la línea: base (cantidad × precio) + impuesto.</summary>
     public decimal Subtotal { get; set; }
 
     public virtual Order Order { get; set; } = null!;

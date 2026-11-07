@@ -53,7 +53,7 @@ export class PosService {
     return this.http.post(`${this.apiUrl}/Orders`, order);
   }
 
-  getOrders(filters: { startDate?: string; endDate?: string; customerId?: number; status?: string; sectionId?: number; invoiceType?: string } = {}): Observable<OrderSummary[]> {
+  getOrders(filters: { startDate?: string; endDate?: string; customerId?: number; status?: string; sectionId?: number; invoiceType?: string; plate?: string } = {}): Observable<OrderSummary[]> {
     const params = new URLSearchParams();
 
     if (filters.startDate) params.set('startDate', filters.startDate);
@@ -62,6 +62,7 @@ export class PosService {
     if (filters.status) params.set('status', filters.status);
     if (filters.sectionId) params.set('sectionId', filters.sectionId.toString());
     if (filters.invoiceType) params.set('invoiceType', filters.invoiceType);
+    if (filters.plate) params.set('plate', filters.plate);
 
     const query = params.toString();
     return this.http.get<OrderSummary[]>(`${this.apiUrl}/Orders${query ? `?${query}` : ''}`);

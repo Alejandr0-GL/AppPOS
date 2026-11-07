@@ -17,10 +17,12 @@ const data: ReceiptData = {
   customerAddress: 'Calle 10 # 20-30',
   customerPhone: '3001234567',
   items: [
-    { quantity: 2, name: 'Cambio de aceite', sku: 'SRV-ACEITE', unitPrice: 50000, subtotal: 119000, taxAmount: 19000 }
+    { quantity: 2, name: 'Cambio de aceite', sku: 'SRV-ACEITE', unitPrice: 50000, subtotal: 100000, taxAmount: 19000, taxLabel: 'IVA 19%' }
   ],
   subtotal: 100000,
   taxAmount: 19000,
+  showTax: true,
+  taxBreakdown: [{ label: 'IVA 19%', base: 100000, amount: 19000 }],
   discount: 0,
   total: 119000,
   paymentMethod: 'Efectivo',

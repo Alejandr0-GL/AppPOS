@@ -21,6 +21,8 @@ public partial class AppPosDbContext : DbContext
 
     public virtual DbSet<Employee> Employees { get; set; }
 
+    public virtual DbSet<Expense> Expenses { get; set; }
+
     public virtual DbSet<Inventory> Inventories { get; set; }
 
     public virtual DbSet<Order> Orders { get; set; }
@@ -185,6 +187,17 @@ public partial class AppPosDbContext : DbContext
             entity.Property(e => e.PriceChangeReason)
                 .HasMaxLength(200)
                 .HasColumnName("price_change_reason");
+            // INV-01: placa y datos de la factura congelados en la venta.
+            entity.Property(e => e.VehiclePlate)
+                .HasMaxLength(10)
+                .HasColumnName("vehicle_plate");
+            entity.Property(e => e.CustomerName)
+                .HasMaxLength(100)
+                .HasColumnName("customer_name");
+            entity.Property(e => e.CustomerDocument)
+                .HasMaxLength(30)
+                .HasColumnName("customer_document");
+            entity.HasIndex(e => e.VehiclePlate, "IX_Orders_VehiclePlate");
             entity.Property(e => e.InvoiceType)
                 .HasMaxLength(20)
                 .HasColumnName("invoice_type");
@@ -250,6 +263,14 @@ public partial class AppPosDbContext : DbContext
             entity.Property(e => e.TaxAmount)
                 .HasColumnType("decimal(18, 2)")
                 .HasColumnName("tax_amount");
+            // INV-01: tarifa y nombre del impuesto congelados al vender.
+            entity.Property(e => e.AppliedTaxPercentage)
+                .HasColumnType("decimal(5, 2)")
+                .HasDefaultValue(0m)
+                .HasColumnName("applied_tax_percentage");
+            entity.Property(e => e.TaxName)
+                .HasMaxLength(50)
+                .HasColumnName("tax_name");
             entity.Property(e => e.UnitPrice)
                 .HasColumnType("decimal(18, 2)")
                 .HasColumnName("unit_price");
@@ -498,6 +519,65 @@ public partial class AppPosDbContext : DbContext
             entity.Property(e => e.Percentage)
                 .HasColumnType("decimal(5, 2)")
                 .HasColumnName("percentage");
+        });
+
+        // EXP-01: gastos del negocio y personales / familiares.
+        modelBuilder.Entity<Expense>(entity =>
+        {
+            entity.ToTable("Expenses", table =>
+            {
+                table.HasCheckConstraint("CK_Expenses_Amount", "[amount] > 0");
+                table.HasCheckConstraint("CK_Expenses_Scope", "[scope] IN ('BUSINESS', 'PERSONAL')");            });
+
+            entity.HasKey(e => e.ExpenseId);
+
+            entity.Property(e => e.ExpenseId).HasColumnName("expense_id");
+            entity.Property(e => e.UserId).HasColumnName("user_id");
+            entity.Property(e => e.Amount)
+                .HasColumnType("decimal(18, 2)")
+                .HasColumnName("amount");
+            entity.Property(e => e.Category)
+                .HasMaxLength(60)
+                .HasColumnName("category");
+            entity.Property(e => e.Scope)
+                .HasMaxLength(20)
+                .HasColumnName("scope");
+            entity.Property(e => e.PaymentMethod)
+                .HasMaxLength(20)
+                .HasColumnName("payment_method");
+            entity.Property(e => e.Description)
+                .HasMaxLength(250)
+                .HasColumnName("description");
+            entity.Property(e => e.Date)
+                .HasColumnType("date")
+                .HasColumnName("date");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("(sysdatetime())")
+                .HasColumnName("created_at");
+            // EXP-02
+            entity.Property(e => e.SectionId).HasColumnName("section_id");
+            entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
+            entity.Property(e => e.IsVoided)
+                .HasDefaultValue(false)
+                .HasColumnName("is_voided");
+            entity.Property(e => e.VoidedAt).HasColumnName("voided_at");
+            entity.Property(e => e.VoidReason)
+                .HasMaxLength(250)
+                .HasColumnName("void_reason");
+
+            entity.HasIndex(e => e.Date, "IX_Expenses_Date");
+            entity.HasIndex(e => new { e.Scope, e.Date }, "IX_Expenses_Scope_Date");
+            entity.HasIndex(e => new { e.SectionId, e.Date }, "IX_Expenses_Section_Date");
+
+            entity.HasOne(d => d.User).WithMany(p => p.Expenses)
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Expenses_Users");
+
+            entity.HasOne(d => d.Section).WithMany(p => p.Expenses)
+                .HasForeignKey(d => d.SectionId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Expenses_Sections");
         });
 
         modelBuilder.Entity<User>(entity =>

@@ -174,7 +174,8 @@ namespace AppPOS.Api.Controllers
                     detail.CommissionAmount,
                     detail.AppliedBusinessProfitPercentage,
                     detail.LocalProfitAmount,
-                    CustomerName = customer.Name
+                    // INV-01: nombre escrito en la venta (el cliente puede no estar guardado).
+                    CustomerName = order.CustomerName ?? customer.Name
                 }).ToListAsync();
 
             var items = rows
