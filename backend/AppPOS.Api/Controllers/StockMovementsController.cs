@@ -1,4 +1,6 @@
 ﻿using AppPOS.Api.Models;
+using AppPOS.Api.Services.Auth;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -20,6 +22,10 @@ namespace AppPOS.Api.Controllers
         [HttpGet]
         public async Task<IActionResult> GetMovements([FromQuery] int? productId, [FromQuery] int? sectionId)
         {
+            // SEC-01: el cajero sólo consulta el kardex de su unidad.
+            if (!this.TryResolveSection(sectionId, out var effectiveSectionId, out var forbidden)) return forbidden!;
+            sectionId = effectiveSectionId;
+
             var query = _context.StockMovements.AsQueryable();
 
             if (productId.HasValue)

@@ -63,7 +63,6 @@ export interface CreateOrderDetailDto {
 }
 
 export interface CreateOrderDto {
-  userId: number;
   /** Cliente guardado (frecuente); null = "Consumidor Final" con el nombre escrito. */
   customerId: number | null;
   /** INV-01: "a nombre de" (texto libre). */
@@ -217,6 +216,8 @@ export interface PurchaseSummary {
   totalAmount: number;
   supplier?: { supplierId: number; name: string } | null;
   user?: { userId: number; username: string } | null;
+  /** SEC-01: quién anuló la compra (null en compras anteriores). */
+  cancelledBy?: { userId: number; username: string } | null;
   details: PurchaseDetail[];
   sections: Array<{ sectionId: number; name: string }>;
 }
@@ -228,7 +229,6 @@ export interface CreatePurchaseDetailDto {
 }
 
 export interface CreatePurchaseDto {
-  userId: number;
   supplierId: number;
   invoiceNumber?: string;
   sectionId: number;

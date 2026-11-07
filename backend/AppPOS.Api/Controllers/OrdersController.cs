@@ -1,6 +1,8 @@
 ﻿using AppPOS.Api.DTOs;
 using AppPOS.Api.Models;
 using AppPOS.Api.Services;
+using AppPOS.Api.Services.Auth;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -62,9 +64,11 @@ namespace AppPOS.Api.Controllers
                 query = query.Where(o => o.Status == status);
             }
 
-            if (sectionId.HasValue)
+            // SEC-01: el cajero ve todas las ventas, pero sólo de su unidad.
+            if (!this.TryResolveSection(sectionId, out var effectiveSectionId, out var forbidden)) return forbidden!;
+            if (effectiveSectionId.HasValue)
             {
-                query = query.Where(o => o.SectionId == sectionId.Value);
+                query = query.Where(o => o.SectionId == effectiveSectionId.Value);
             }
 
             if (!string.IsNullOrWhiteSpace(invoiceType))
@@ -120,8 +124,12 @@ namespace AppPOS.Api.Controllers
         [HttpGet("{id:int}")]
         public async Task<IActionResult> GetOrder(int id)
         {
+            // SEC-01: el cajero sólo ve ventas de su unidad (otra unidad → 404).
+            var isAdmin = User.IsAdmin();
+            var assignedSectionId = User.GetAssignedSectionId();
             var order = await _context.Orders
                 .Where(o => o.OrderId == id)
+                .Where(o => isAdmin || o.SectionId == assignedSectionId)
                 .Select(o => new
                 {
                     o.OrderId,
@@ -232,10 +240,9 @@ namespace AppPOS.Api.Controllers
                 return BadRequest(new { message = "Todos los productos de la orden deben pertenecer a la unidad de negocio seleccionada." });
             }
 
-            if (!await _context.Users.AnyAsync(user => user.UserId == dto.UserId && user.IsActive))
-            {
-                return BadRequest(new { message = "El usuario que registra la venta no existe o está inactivo." });
-            }
+            // SEC-01: la venta queda a nombre del usuario autenticado; el cajero sólo vende en su unidad.
+            if (!this.TryResolveSection(dto.SectionId, out _, out var forbidden)) return forbidden!;
+            var currentUserId = User.GetUserId();
 
             using var transaction = await _context.Database.BeginTransactionAsync();
 
@@ -470,6 +477,12 @@ namespace AppPOS.Api.Controllers
                     return BadRequest(new { message = "El motivo del ajuste de precio no puede superar 200 caracteres." });
                 }
 
+                // SEC-01: el cajero puede cambiar precios, pero siempre dejando el motivo.
+                if (anyPriceChanged && string.IsNullOrWhiteSpace(priceChangeReason) && !User.IsAdmin())
+                {
+                    return BadRequest(new { message = "Escribe el motivo del ajuste de precio." });
+                }
+
                 // Crear cabecera de la Orden
                 var order = new Order
                 {
@@ -479,7 +492,7 @@ namespace AppPOS.Api.Controllers
                     CustomerDocument = customerDocument,
                     VehiclePlate = vehiclePlate,
                     SectionId = dto.SectionId,
-                    UserId = dto.UserId,
+                    UserId = currentUserId,
                     Date = DateTime.Now,
                     PaymentMethod = paymentMethod,
                     ReceivedAmount = receivedAmount,
@@ -504,7 +517,7 @@ namespace AppPOS.Api.Controllers
                     if (!products[detail.ProductId].IsService)
                     {
                         await _stockService.DeductStockForSaleAsync(
-                            dto.UserId,
+                            currentUserId,
                             detail.ProductId,
                             dto.SectionId,
                             detail.Quantity,
@@ -561,6 +574,9 @@ namespace AppPOS.Api.Controllers
 
             var order = await _context.Orders.FirstOrDefaultAsync(o => o.OrderId == id);
 
+            // SEC-01: el cajero cobra créditos sólo de su unidad.
+            if (order != null && !this.TryResolveSection(order.SectionId, out _, out var forbidden)) return forbidden!;
+
             if (order == null)
             {
                 return NotFound(new { message = "Orden no encontrada." });
@@ -611,9 +627,12 @@ namespace AppPOS.Api.Controllers
         }
 
         // PUT: api/Orders/5/cancel
+        // SEC-01: sólo el administrador anula; queda registrado quién (usuario del token).
         [HttpPut("{id:int}/cancel")]
-        public async Task<IActionResult> CancelOrder(int id, [FromBody] CancelOrderDto dto)
+        [Authorize(Roles = Roles.Admin)]
+        public async Task<IActionResult> CancelOrder(int id)
         {
+            var currentUserId = User.GetUserId();
             using var transaction = await _context.Database.BeginTransactionAsync();
 
             try
@@ -652,7 +671,7 @@ namespace AppPOS.Api.Controllers
                     if (serviceProductIds.Contains(detail.ProductId)) continue;
 
                     await _stockService.RestoreStockForSaleAsync(
-                        dto.UserId,
+                        currentUserId,
                         detail.ProductId,
                         order.SectionId,
                         detail.Quantity,
@@ -660,7 +679,7 @@ namespace AppPOS.Api.Controllers
                 }
 
                 order.Status = "CANCELLED";
-                order.CancelledByUserId = dto.UserId;
+                order.CancelledByUserId = currentUserId;
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
 

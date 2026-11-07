@@ -28,11 +28,13 @@ export interface Expense {
   isVoided: boolean;
   voidedAt?: string | null;
   voidReason?: string | null;
+  /** SEC-01: quién hizo la última edición / quién anuló. */
+  updatedByUsername?: string | null;
+  voidedByUsername?: string | null;
 }
 
 /** Cuerpo de crear (POST) y editar (PUT). */
 export interface CreateExpenseRequest {
-  userId: number;
   amount: number;
   category: string;
   scope: ExpenseScope;

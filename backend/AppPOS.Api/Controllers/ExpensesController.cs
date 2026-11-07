@@ -1,5 +1,7 @@
 using AppPOS.Api.DTOs;
 using AppPOS.Api.Models;
+using AppPOS.Api.Services.Auth;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,6 +13,7 @@ namespace AppPOS.Api.Controllers
     /// </summary>
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Roles = Roles.Admin)] // SEC-01: módulo sólo para el administrador
     public class ExpensesController : ControllerBase
     {
         private static readonly Dictionary<string, string> ScopeAliases = new(StringComparer.OrdinalIgnoreCase)
@@ -75,7 +78,10 @@ namespace AppPOS.Api.Controllers
                     UpdatedAt = expense.UpdatedAt,
                     IsVoided = expense.IsVoided,
                     VoidedAt = expense.VoidedAt,
-                    VoidReason = expense.VoidReason
+                    VoidReason = expense.VoidReason,
+                    // SEC-01: quién editó / anuló.
+                    UpdatedByUsername = _context.Users.Where(user => user.UserId == expense.UpdatedByUserId).Select(user => user.Username).FirstOrDefault(),
+                    VoidedByUsername = _context.Users.Where(user => user.UserId == expense.VoidedByUserId).Select(user => user.Username).FirstOrDefault()
                 })
                 .ToListAsync();
 
@@ -135,12 +141,9 @@ namespace AppPOS.Api.Controllers
             var (values, error) = await ValidateAsync(dto);
             if (error != null) return BadRequest(new { message = error });
 
-            if (!await _context.Users.AnyAsync(user => user.UserId == dto.UserId))
-                return BadRequest(new { message = "El usuario que registra el gasto no existe." });
-
             var expense = new Expense
             {
-                UserId = dto.UserId,
+                UserId = User.GetUserId(), // SEC-01: usuario del token
                 CreatedAt = DateTime.Now
             };
             values!.ApplyTo(expense);
@@ -170,6 +173,7 @@ namespace AppPOS.Api.Controllers
 
             values!.ApplyTo(expense);
             expense.UpdatedAt = DateTime.Now;
+            expense.UpdatedByUserId = User.GetUserId();
             await _context.SaveChangesAsync();
 
             return Ok(new { message = "Gasto actualizado correctamente.", expenseId = expense.ExpenseId });
@@ -191,6 +195,7 @@ namespace AppPOS.Api.Controllers
 
             expense.IsVoided = true;
             expense.VoidedAt = DateTime.Now;
+            expense.VoidedByUserId = User.GetUserId();
             expense.VoidReason = string.IsNullOrWhiteSpace(reason) ? null : reason;
             await _context.SaveChangesAsync();
 

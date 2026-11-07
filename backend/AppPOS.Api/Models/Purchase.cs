@@ -22,6 +22,9 @@ public partial class Purchase
 
     public string Status { get; set; } = null!;
 
+    /// <summary>SEC-01: usuario que anuló la compra (NULL si no está anulada o es anterior a SEC-01).</summary>
+    public int? CancelledByUserId { get; set; }
+
     public virtual ICollection<PurchaseDetail> PurchaseDetails { get; set; } = new List<PurchaseDetail>();
 
     [JsonIgnore]

@@ -3,6 +3,7 @@ import { Component, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Inventory as InventoryRecord, StockMovement } from '../../shared/models/pos.models';
 import { PosService } from '../pos/services/pos.service';
+import { AuthService } from '../../core/auth/auth.service';
 
 interface InventoryDraft {
   currentStock: number;
@@ -71,7 +72,10 @@ interface InventoryDraft {
             <button (click)="closeDetails()" class="rounded-md px-2 py-1 text-xl font-bold text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Cerrar detalle">&times;</button>
           </div>
           <div class="grid grid-cols-2 gap-3 border-b border-slate-200 p-5"><div class="rounded-xl bg-slate-100 p-3"><span class="block text-xs uppercase text-slate-500">Stock actual</span><strong class="text-2xl text-slate-900">{{ item.currentStock }}</strong></div><div class="rounded-xl bg-amber-50 p-3"><span class="block text-xs uppercase text-amber-700">Stock mínimo</span><strong class="text-2xl text-amber-900">{{ item.minStock }}</strong></div></div>
+          <!-- SEC-01: sólo el administrador ajusta stock; el cajero consulta -->
+          @if (isAdmin()) {
           <div class="border-b border-slate-200 p-5"><h4 class="mb-3 font-bold text-slate-800">Ajuste rápido</h4><div class="grid grid-cols-2 gap-3"><label class="text-xs font-bold uppercase text-slate-500">Stock actual<input [(ngModel)]="drafts[item.inventoryId].currentStock" type="number" min="0" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-normal text-slate-800" /></label><label class="text-xs font-bold uppercase text-slate-500">Stock mínimo<input [(ngModel)]="drafts[item.inventoryId].minStock" type="number" min="0" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-normal text-slate-800" /></label></div><label class="mt-3 block text-xs font-bold uppercase text-slate-500">Motivo<input [(ngModel)]="drafts[item.inventoryId].reason" type="text" placeholder="Conteo físico - producto dañado" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-normal text-slate-800" /></label><button (click)="save(item)" class="mt-3 w-full rounded-lg bg-emerald-600 hover:bg-emerald-700 px-4 py-2 text-sm font-bold text-white">Guardar ajuste</button></div>
+          }
           <div class="p-5"><h4 class="mb-3 font-bold text-slate-800">Movimientos</h4><div class="overflow-x-auto"><table class="w-full min-w-[520px] text-left text-sm"><thead class="bg-slate-50 text-xs uppercase text-slate-500"><tr><th class="px-3 py-2">Fecha / hora</th><th class="px-3 py-2">Tipo</th><th class="px-3 py-2">Cantidad</th><th class="px-3 py-2">Usuario</th><th class="px-3 py-2">Motivo</th></tr></thead><tbody class="divide-y divide-slate-100">@for (movement of movements(); track movement.movementId) {<tr><td class="whitespace-nowrap px-3 py-2 text-slate-600">{{ movement.createdAt | date:'dd/MM/yyyy HH:mm' }}</td><td class="px-3 py-2 font-semibold text-slate-700">{{ movement.movementType }}</td><td class="px-3 py-2 font-bold" [class.text-emerald-600]="movement.quantity > 0" [class.text-red-600]="movement.quantity < 0">{{ movement.quantity > 0 ? '+' : '' }}{{ movement.quantity }}</td><td class="px-3 py-2 text-slate-600">{{ movement.user?.username || 'Usuario' }}</td><td class="px-3 py-2 text-slate-600">{{ movement.reason || 'Sin nota' }}</td></tr>} @empty {<tr><td colspan="5" class="px-3 py-8 text-center text-slate-400">No hay movimientos para este producto.</td></tr>}</tbody></table></div></div>
         </aside>
       }
@@ -80,6 +84,7 @@ interface InventoryDraft {
 })
 export class InventoryComponent {
   private readonly posService = inject(PosService);
+  readonly isAdmin = inject(AuthService).isAdmin;
 
   inventories = signal<InventoryRecord[]>([]);
   movements = signal<StockMovement[]>([]);
@@ -138,7 +143,6 @@ export class InventoryComponent {
     }
 
     this.posService.updateInventory(item.inventoryId, {
-      userId: 1,
       sectionId: item.sectionId,
       currentStock: draft.currentStock,
       minStock: draft.minStock,

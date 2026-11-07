@@ -1,6 +1,8 @@
 ﻿using AppPOS.Api.DTOs;
 using AppPOS.Api.Models;
 using AppPOS.Api.Services;
+using AppPOS.Api.Services.Auth;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -9,6 +11,7 @@ namespace AppPOS.Api.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Roles = Roles.Admin)] // SEC-01: módulo sólo para el administrador
     public class PurchasesController : ControllerBase
     {
         private readonly AppPosDbContext _context;
@@ -55,7 +58,9 @@ namespace AppPOS.Api.Controllers
                 .OrderByDescending(purchase => purchase.Date)
                 .ToListAsync();
 
-            var userIds = purchases.Select(purchase => purchase.UserId).Distinct().ToList();
+            var userIds = purchases.Select(purchase => purchase.UserId)
+                .Concat(purchases.Where(purchase => purchase.CancelledByUserId.HasValue).Select(purchase => purchase.CancelledByUserId!.Value))
+                .Distinct().ToList();
             var users = await _context.Users
                 .Where(user => userIds.Contains(user.UserId))
                 .Select(user => new { user.UserId, user.Username })
@@ -76,6 +81,11 @@ namespace AppPOS.Api.Controllers
                     : new { purchase.Supplier.SupplierId, purchase.Supplier.Name },
                 User = users.TryGetValue(purchase.UserId, out var user)
                     ? new { user.UserId, user.Username }
+                    : null,
+                // SEC-01: quién anuló la compra (null en compras anteriores a SEC-01).
+                purchase.CancelledByUserId,
+                CancelledBy = purchase.CancelledByUserId.HasValue && users.TryGetValue(purchase.CancelledByUserId.Value, out var cancelledBy)
+                    ? new { cancelledBy.UserId, cancelledBy.Username }
                     : null,
                 Details = purchase.PurchaseDetails
                     .OrderBy(detail => detail.PurchaseDetailId)
@@ -121,7 +131,7 @@ namespace AppPOS.Api.Controllers
             {
                 var purchase = new Purchase
                 {
-                    UserId = dto.UserId,
+                    UserId = User.GetUserId(),
                     SupplierId = dto.SupplierId,
                     Date = DateTime.Now,
                     InvoiceNumber = string.IsNullOrWhiteSpace(dto.InvoiceNumber) ? null : dto.InvoiceNumber.Trim(),
@@ -152,7 +162,7 @@ namespace AppPOS.Api.Controllers
                 foreach (var detail in purchase.PurchaseDetails)
                 {
                     await _stockService.RegisterStockMovementAsync(
-                        userId: dto.UserId,
+                        userId: User.GetUserId(),
                         productId: detail.ProductId,
                         sectionId: detail.SectionId,
                         quantity: detail.Quantity,
@@ -186,7 +196,7 @@ namespace AppPOS.Api.Controllers
 
         // POST: api/Purchases/5/cancel
         [HttpPost("{id:int}/cancel")]
-        public async Task<IActionResult> CancelPurchase(int id, [FromBody] CancelPurchaseDto? dto)
+        public async Task<IActionResult> CancelPurchase(int id)
         {
             await using var transaction = await _context.Database.BeginTransactionAsync();
 
@@ -214,12 +224,8 @@ namespace AppPOS.Api.Controllers
                     return BadRequest(new { message = "Solo se pueden anular compras completadas." });
                 }
 
-                var userId = dto != null && dto.UserId > 0 ? dto.UserId : purchase.UserId;
-                if (userId <= 0 || !await _context.Users.AnyAsync(user => user.UserId == userId && user.IsActive))
-                {
-                    await transaction.RollbackAsync();
-                    return BadRequest(new { message = "El usuario que anula la compra no existe o está inactivo." });
-                }
+                // SEC-01: quien anula es el usuario autenticado.
+                var userId = User.GetUserId();
 
                 // Agrupar por producto para soportar compras heredadas con líneas repetidas.
                 var requiredByProduct = purchase.PurchaseDetails
@@ -263,6 +269,7 @@ namespace AppPOS.Api.Controllers
                 }
 
                 purchase.Status = "CANCELED";
+                purchase.CancelledByUserId = userId;
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
 
@@ -288,9 +295,6 @@ namespace AppPOS.Api.Controllers
         private async Task<string?> ValidatePurchase(CreatePurchaseDto? dto)
         {
             if (dto == null) return "El cuerpo de la compra es obligatorio.";
-
-            if (dto.UserId <= 0 || !await _context.Users.AnyAsync(user => user.UserId == dto.UserId && user.IsActive))
-                return "El usuario que registra la compra no existe o está inactivo.";
 
             if (dto.SupplierId <= 0 || !await _context.Suppliers.AnyAsync(supplier => supplier.SupplierId == dto.SupplierId))
                 return "El proveedor seleccionado no existe.";

@@ -1,4 +1,6 @@
 ﻿using AppPOS.Api.Models;
+using AppPOS.Api.Services.Auth;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -7,6 +9,7 @@ namespace AppPOS.Api.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Roles = Roles.Admin)] // SEC-01: módulo sólo para el administrador
     public class SuppliersController : ControllerBase
     {
         private readonly AppPosDbContext _context;

@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject, debounceTime, distinctUntilChanged, switchMap, of } from 'rxjs';
 import { PosService, Section } from './services/pos.service';
+import { AuthService } from '../../core/auth/auth.service';
 import { CartItem, Product, Customer, CreateOrderDto, Employee } from '../../shared/models/pos.models';
 import { CustomersService } from '../customers/services/customers.service';
 import { EmployeesService } from '../employees/services/employees.service';
@@ -327,7 +328,8 @@ interface QuickCustomerForm {
             <input
               [(ngModel)]="priceChangeReason"
               maxlength="200"
-              placeholder="Motivo del ajuste de precio (opcional)"
+              [placeholder]="priceReasonRequired() ? 'Motivo del ajuste de precio (obligatorio)' : 'Motivo del ajuste de precio (opcional)'"
+              [required]="priceReasonRequired()"
               aria-label="Motivo del ajuste de precio"
               class="w-full rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs text-slate-700 outline-none placeholder:text-amber-700/60 focus:ring-2 focus:ring-indigo-500"
             />
@@ -439,6 +441,7 @@ interface QuickCustomerForm {
 })
 export class PosComponent implements OnInit {
   private posService = inject(PosService);
+  private auth = inject(AuthService);
   private customersService = inject(CustomersService);
   private employeesService = inject(EmployeesService);
 
@@ -848,10 +851,13 @@ export class PosComponent implements OnInit {
   /** Línea cuyo precio se está editando (clic en el total de la derecha). */
   readonly editingPriceIndex = signal<number | null>(null);
 
-  /** Motivo único del ajuste de precio para toda la venta (opcional). */
+  /** Motivo único del ajuste de precio para toda la venta (SEC-01: obligatorio para el cajero). */
   priceChangeReason = '';
 
   readonly hasPriceChanges = computed(() => this.cart().some(item => this.isPriceChanged(item)));
+
+  /** SEC-01: el cajero puede cambiar precios, pero siempre con motivo (el administrador, opcional). */
+  readonly priceReasonRequired = computed(() => !this.auth.isAdmin());
 
   startPriceEdit(index: number): void {
     this.editingPriceIndex.set(index);
@@ -938,6 +944,11 @@ export class PosComponent implements OnInit {
       return;
     }
 
+    if (this.hasPriceChanges() && this.priceReasonRequired() && !this.priceChangeReason.trim()) {
+      alert('Escribe el motivo del ajuste de precio antes de cobrar.');
+      return;
+    }
+
     const receivedAmount = this.paymentMethod === 'CASH' && this.cashReceived && this.cashReceived > 0
       ? this.cashReceived
       : null;
@@ -948,7 +959,6 @@ export class PosComponent implements OnInit {
     }
 
     const orderDto: CreateOrderDto = {
-      userId: 1,
       // INV-01: cliente frecuente (con su documento) o, si no, "Consumidor Final" con el nombre escrito.
       customerId: customer?.customerId ?? null,
       customerName: customer ? null : (this.customerName().trim() || null),
