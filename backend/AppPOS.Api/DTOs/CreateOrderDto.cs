@@ -28,7 +28,7 @@
 
     public class CreateOrderDto
     {
-        public int UserId { get; set; } // Identifica al cajero/usuario que realiza la venta
+        // SEC-01: ya no hay UserId en el body: la venta queda a nombre del usuario del token.
 
         /// <summary>
         /// Cliente guardado (frecuente). INV-01: opcional; si no se envía, la venta queda en
@@ -60,11 +60,6 @@
         /// si alguna línea trae un PriceOverride distinto al precio de lista.
         /// </summary>
         public string? PriceChangeReason { get; set; }
-    }
-
-    public class CancelOrderDto
-    {
-        public int UserId { get; set; }
     }
 
     // PATCH api/Orders/{id}/pay — registro del pago de una venta a crédito (POS-06)

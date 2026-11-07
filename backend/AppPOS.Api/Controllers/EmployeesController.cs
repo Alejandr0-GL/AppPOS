@@ -1,5 +1,7 @@
 using AppPOS.Api.DTOs;
 using AppPOS.Api.Models;
+using AppPOS.Api.Services.Auth;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -44,6 +46,7 @@ namespace AppPOS.Api.Controllers
 
         // GET: api/Employees/5
         [HttpGet("{id:int}")]
+        [Authorize(Roles = Roles.Admin)] // SEC-01
         public async Task<IActionResult> GetEmployee(int id)
         {
             var employee = await _context.Employees.AsNoTracking()
@@ -59,6 +62,7 @@ namespace AppPOS.Api.Controllers
 
         // POST: api/Employees
         [HttpPost]
+        [Authorize(Roles = Roles.Admin)] // SEC-01
         public async Task<IActionResult> PostEmployee([FromBody] CreateEmployeeDto dto)
         {
             var validationError = ValidateEmployee(dto.Name, dto.Phone, dto.Role);
@@ -81,6 +85,7 @@ namespace AppPOS.Api.Controllers
 
         // PUT: api/Employees/5
         [HttpPut("{id:int}")]
+        [Authorize(Roles = Roles.Admin)] // SEC-01
         public async Task<IActionResult> PutEmployee(int id, [FromBody] UpdateEmployeeDto dto)
         {
             if (id != dto.EmployeeId)
@@ -110,6 +115,7 @@ namespace AppPOS.Api.Controllers
 
         // DELETE: api/Employees/5 (soft delete)
         [HttpDelete("{id:int}")]
+        [Authorize(Roles = Roles.Admin)] // SEC-01
         public async Task<IActionResult> DeleteEmployee(int id)
         {
             var employee = await _context.Employees.FindAsync(id);
@@ -127,6 +133,7 @@ namespace AppPOS.Api.Controllers
 
         // GET: api/Employees/5/commissions?startDate=2026-10-01&endDate=2026-10-31
         [HttpGet("{id:int}/commissions")]
+        [Authorize(Roles = Roles.Admin)] // SEC-01
         public async Task<IActionResult> GetCommissions(
             int id,
             [FromQuery] DateTime? startDate,

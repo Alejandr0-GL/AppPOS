@@ -399,6 +399,14 @@ public partial class AppPosDbContext : DbContext
                 .HasForeignKey(d => d.UserId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_Purchases_Users");
+
+            // SEC-01: quién anuló la compra.
+            entity.Property(e => e.CancelledByUserId).HasColumnName("cancelled_by_user_id");
+            entity.HasOne<User>()
+                .WithMany()
+                .HasForeignKey(d => d.CancelledByUserId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Purchases_CancelledByUser");
         });
 
         modelBuilder.Entity<PurchaseDetail>(entity =>
@@ -578,6 +586,20 @@ public partial class AppPosDbContext : DbContext
                 .HasForeignKey(d => d.SectionId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_Expenses_Sections");
+
+            // SEC-01: quién editó / anuló el gasto.
+            entity.Property(e => e.UpdatedByUserId).HasColumnName("updated_by_user_id");
+            entity.Property(e => e.VoidedByUserId).HasColumnName("voided_by_user_id");
+            entity.HasOne<User>()
+                .WithMany()
+                .HasForeignKey(d => d.UpdatedByUserId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Expenses_UpdatedByUser");
+            entity.HasOne<User>()
+                .WithMany()
+                .HasForeignKey(d => d.VoidedByUserId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Expenses_VoidedByUser");
         });
 
         modelBuilder.Entity<User>(entity =>
@@ -601,6 +623,26 @@ public partial class AppPosDbContext : DbContext
             entity.Property(e => e.Username)
                 .HasMaxLength(20)
                 .HasColumnName("username");
+
+            // SEC-01: autenticación, roles y bloqueo temporal.
+            entity.Property(e => e.FullName)
+                .HasMaxLength(100)
+                .HasColumnName("full_name");
+            entity.Property(e => e.SectionId).HasColumnName("section_id");
+            entity.Property(e => e.FailedLoginAttempts)
+                .HasDefaultValue(0)
+                .HasColumnName("failed_login_attempts");
+            entity.Property(e => e.LockoutUntil).HasColumnName("lockout_until");
+            entity.Property(e => e.TokenVersion)
+                .HasDefaultValue(0)
+                .HasColumnName("token_version");
+
+            entity.HasIndex(e => e.Username, "UX_Users_Username").IsUnique();
+
+            entity.HasOne(d => d.Section).WithMany(p => p.Users)
+                .HasForeignKey(d => d.SectionId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Users_Sections");
         });
 
         OnModelCreatingPartial(modelBuilder);

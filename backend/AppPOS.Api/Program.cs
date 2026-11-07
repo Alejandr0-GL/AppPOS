@@ -1,9 +1,15 @@
 using AppPOS.Api.Models;
 using AppPOS.Api.Services;
+using AppPOS.Api.Services.Auth;
 using AppPOS.Api.Services.Storage;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -47,9 +53,84 @@ switch (imageStorageOptions.Provider.Trim().ToLowerInvariant())
             $"Storage:ProductImages:Provider '{imageStorageOptions.Provider}' no está soportado. Valores válidos: Local.");
 }
 
+// SEC-01: autenticación JWT. Toda la API exige sesión (FallbackPolicy) salvo [AllowAnonymous]
+// (login); las acciones de administrador usan [Authorize(Roles = Roles.Admin)].
+builder.Services.Configure<AuthOptions>(builder.Configuration.GetSection(AuthOptions.SectionName));
+var authOptions = builder.Configuration.GetSection(AuthOptions.SectionName).Get<AuthOptions>() ?? new AuthOptions();
+if (string.IsNullOrWhiteSpace(authOptions.Jwt.Key) || authOptions.Jwt.Key.Length < 32)
+{
+    throw new InvalidOperationException(
+        "Falta Auth:Jwt:Key (mínimo 32 caracteres). Defínela en appsettings.json (no versionado) o en la variable de entorno Auth__Jwt__Key.");
+}
+
+builder.Services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
+builder.Services.AddSingleton<ITokenService, TokenService>();
+
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.MapInboundClaims = false; // claims con su nombre corto: sub, name, role, section, tv
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = authOptions.Jwt.Issuer,
+            ValidateAudience = true,
+            ValidAudience = authOptions.Jwt.Audience,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = TokenService.SigningKey(authOptions.Jwt.Key),
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.FromMinutes(1),
+            NameClaimType = AppClaims.Username,
+            RoleClaimType = AppClaims.Role
+        };
+        options.Events = new JwtBearerEvents
+        {
+            // Un token deja de valer si el usuario se desactivó o si cambió su contraseña, rol o unidad.
+            OnTokenValidated = async context =>
+            {
+                var principal = context.Principal!;
+                if (!int.TryParse(principal.FindFirst(AppClaims.UserId)?.Value, out var userId)
+                    || !int.TryParse(principal.FindFirst(AppClaims.TokenVersion)?.Value, out var tokenVersion))
+                {
+                    context.Fail("Token incompleto.");
+                    return;
+                }
+
+                var db = context.HttpContext.RequestServices.GetRequiredService<AppPosDbContext>();
+                var current = await db.Users.AsNoTracking()
+                    .Where(user => user.UserId == userId)
+                    .Select(user => new { user.IsActive, user.TokenVersion })
+                    .FirstOrDefaultAsync();
+
+                if (current == null || !current.IsActive || current.TokenVersion != tokenVersion)
+                    context.Fail("La sesión ya no es válida.");
+            }
+        };
+    });
+
+builder.Services.AddAuthorization(options =>
+{
+    options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
+});
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    // SEC-01: botón "Authorize" en Swagger para probar con el token de POST /api/Auth/login.
+    options.AddSecurityDefinition("bearer", new OpenApiSecurityScheme
+    {
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        Description = "Token de POST /api/Auth/login"
+    });
+    options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+    {
+        [new OpenApiSecuritySchemeReference("bearer", document)] = []
+    });
+});
 
 var app = builder.Build();
 
@@ -79,10 +160,12 @@ if (app.Services.GetRequiredService<IProductImageStorage>() is LocalProductImage
 
 app.UseStaticFiles();
 
+// SEC-01: las imágenes (archivos estáticos, arriba) siguen siendo públicas; los endpoints no.
+app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
-app.UseRouting();
-
+// SEC-01: primer acceso del administrador (Auth:BootstrapAdminPassword).
+await AdminBootstrapper.RunAsync(app.Services, app.Logger);
 
 app.Run();

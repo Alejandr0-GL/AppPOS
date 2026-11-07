@@ -209,7 +209,7 @@ interface PurchaseLine {
           <div><span class="block text-xs uppercase text-slate-500">Factura</span><strong class="text-slate-800">{{ purchase.invoiceNumber || 'Sin número' }}</strong></div>
           <div><span class="block text-xs uppercase text-slate-500">Unidad</span><strong class="text-slate-800">{{ sectionNames(purchase) }}</strong></div>
           <div><span class="block text-xs uppercase text-slate-500">Registrado por</span><strong class="text-slate-800">{{ purchase.user?.username || 'Sin usuario' }}</strong></div>
-          <div><span class="block text-xs uppercase text-slate-500">Estado</span><span class="rounded-full px-2 py-1 text-xs font-bold" [class.bg-emerald-100]="purchase.status === 'COMPLETED'" [class.text-emerald-700]="purchase.status === 'COMPLETED'" [class.bg-red-100]="purchase.status === 'CANCELED'" [class.text-red-700]="purchase.status === 'CANCELED'">{{ purchase.status === 'CANCELED' ? 'Anulada' : 'Activa' }}</span></div>
+          <div><span class="block text-xs uppercase text-slate-500">Estado</span><span class="rounded-full px-2 py-1 text-xs font-bold" [class.bg-emerald-100]="purchase.status === 'COMPLETED'" [class.text-emerald-700]="purchase.status === 'COMPLETED'" [class.bg-red-100]="purchase.status === 'CANCELED'" [class.text-red-700]="purchase.status === 'CANCELED'">{{ purchase.status === 'CANCELED' ? 'Anulada' : 'Activa' }}</span>@if (purchase.status === 'CANCELED' && purchase.cancelledBy) {<span class="mt-1 block text-xs text-slate-500">por {{ purchase.cancelledBy.username }}</span>}</div>
         </div>
 
         <div class="flex-1 overflow-y-auto p-5">
@@ -371,7 +371,7 @@ export class PurchasesComponent {
     this.clearMessages();
     this.cancellingPurchaseId.set(purchase.purchaseId);
 
-    this.purchasesService.cancelPurchase(purchase.purchaseId, 1).subscribe({
+    this.purchasesService.cancelPurchase(purchase.purchaseId).subscribe({
       next: response => {
         this.cancellingPurchaseId.set(null);
         this.successMessage.set(response.message);
@@ -482,7 +482,6 @@ export class PurchasesComponent {
     }
 
     const purchase: CreatePurchaseDto = {
-      userId: 1,
       supplierId: Number(this.form.supplierId),
       invoiceNumber: this.form.invoiceNumber.trim() || undefined,
       sectionId,

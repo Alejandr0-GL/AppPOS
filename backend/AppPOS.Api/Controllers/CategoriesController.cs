@@ -1,5 +1,6 @@
 ﻿using AppPOS.Api.Models;
 using Microsoft.AspNetCore.Authorization;
+using AppPOS.Api.Services.Auth;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -46,6 +47,7 @@ namespace AppPOS.Api.Controllers
 
         // POST: api/Categories
         [HttpPost]
+        [Authorize(Roles = Roles.Admin)] // SEC-01
         public async Task<ActionResult<Category>> PostCategory(Category category)
         {
             if (category.SectionId <= 0) return BadRequest(new { message = "La sección de la categoría es obligatoria." });
@@ -64,6 +66,7 @@ namespace AppPOS.Api.Controllers
 
         // PUT: api/Categories/5
         [HttpPut("{id}")]
+        [Authorize(Roles = Roles.Admin)] // SEC-01
         public async Task<IActionResult> PutCategory(int id, Category category)
         {
             if (id != category.CategoryId)
@@ -100,6 +103,7 @@ namespace AppPOS.Api.Controllers
 
         // DELETE: api/Categories/5
         [HttpDelete("{id}")]
+        [Authorize(Roles = Roles.Admin)] // SEC-01
         public async Task<IActionResult> DeleteCategory(int id)
         {
             var category = await _context.Categories.FindAsync(id);

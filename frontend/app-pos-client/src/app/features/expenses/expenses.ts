@@ -143,7 +143,7 @@ interface ExpenseForm {
                 <tr [class]="expense.isVoided ? 'bg-slate-50 text-slate-400' : 'hover:bg-slate-50'">
                   <td class="whitespace-nowrap px-4 py-3" [class.text-slate-600]="!expense.isVoided">
                     {{ formatDate(expense.date) }}
-                    @if (expense.updatedAt) { <span class="block text-[11px] text-slate-400" [title]="'Editado el ' + formatDate(expense.updatedAt)">editado</span> }
+                    @if (expense.updatedAt) { <span class="block text-[11px] text-slate-400" [title]="'Editado el ' + formatDate(expense.updatedAt) + (expense.updatedByUsername ? ' por ' + expense.updatedByUsername : '')">editado{{ expense.updatedByUsername ? ' por ' + expense.updatedByUsername : '' }}</span> }
                   </td>
                   <td class="px-4 py-3">
                     <span class="whitespace-nowrap rounded-full px-2 py-1 text-xs font-bold" [ngClass]="scopeBadgeClass(expense.scope)">{{ scopeLabel(expense.scope) }}</span>
@@ -490,7 +490,6 @@ export class ExpensesComponent {
     if (this.form.date > this.today) return this.formError.set('La fecha del gasto no puede ser futura.');
 
     const request: CreateExpenseRequest = {
-      userId: 1, // Sin autenticación aún (igual que ventas y compras).
       amount,
       category,
       scope: this.form.scope,
@@ -571,7 +570,8 @@ export class ExpensesComponent {
 
   voidTitle(expense: Expense): string {
     const when = expense.voidedAt ? ` el ${formatExpenseDate(expense.voidedAt)}` : '';
-    return `Anulado${when}${expense.voidReason ? ` · ${expense.voidReason}` : ''}`;
+    const who = expense.voidedByUsername ? ` por ${expense.voidedByUsername}` : '';
+    return `Anulado${when}${who}${expense.voidReason ? ` · ${expense.voidReason}` : ''}`;
   }
 
   scopeBadgeClass(scope: ExpenseScope): string {

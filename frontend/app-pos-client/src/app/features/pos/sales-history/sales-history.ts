@@ -8,6 +8,7 @@ import { ReceiptData } from '../../../shared/models/receipt.models';
 import { buildReceiptData, isPendingPayment, paymentMethodLabel, statusLabel } from '../../../shared/utils/receipt.mapper';
 import { ReceiptComponent } from '../../../shared/components/receipt/receipt';
 import { PosService } from '../services/pos.service';
+import { AuthService } from '../../../core/auth/auth.service';
 
 @Component({
   selector: 'app-sales-history',
@@ -138,7 +139,8 @@ import { PosService } from '../services/pos.service';
                 }
                 @if (order.status === 'CANCELLED') {
                   <span class="inline-block rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-700">Anulado por: {{ order.cancelledBy?.username || 'Usuario' }}</span>
-                } @else {
+                } @else if (isAdmin()) {
+                  <!-- SEC-01: sólo el administrador anula ventas -->
                   <button (click)="cancelOrder(order.orderId)" class="rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700">
                     Cancelar venta
                   </button>
@@ -207,6 +209,8 @@ import { PosService } from '../services/pos.service';
 })
 export class SalesHistoryComponent {
   private readonly posService = inject(PosService);
+  /** SEC-01: sólo el administrador anula ventas. */
+  readonly isAdmin = inject(AuthService).isAdmin;
   private readonly route = inject(ActivatedRoute);
 
   orders = signal<OrderSummary[]>([]);
@@ -425,7 +429,7 @@ export class SalesHistoryComponent {
   cancelOrder(orderId: number): void {
     if (!confirm(`¿Deseas cancelar la orden #${orderId}? El stock será restaurado.`)) return;
 
-    this.posService.cancelOrder(orderId, 1).subscribe({
+    this.posService.cancelOrder(orderId).subscribe({
       next: () => {
         this.selectedOrder.set(null);
         this.loadOrders();

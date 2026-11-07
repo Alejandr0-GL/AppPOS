@@ -2,6 +2,7 @@ import { Injectable, inject, signal } from '@angular/core';
 import { API_URL } from '../../../shared/config/api.config';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { AuthService } from '../../../core/auth/auth.service';
 import { CartItem, Product, Customer, CreateOrderDto, Order, OrderSummary, Inventory, StockMovement, PayOrderRequest, PayOrderResponse } from '../../../shared/models/pos.models';
 
 export interface Section {
@@ -19,6 +20,14 @@ export class PosService {
 
   selectedSectionId = signal<number | null>(null);
   cartItems = signal<CartItem[]>([]);
+
+  constructor() {
+    // SEC-01: al cerrar sesión (o entrar otro usuario) no se hereda el carrito ni la unidad.
+    inject(AuthService).onLogout(() => {
+      this.cartItems.set([]);
+      this.selectedSectionId.set(null);
+    });
+  }
 
   // Obtener la lista de secciones
   getSections(): Observable<Section[]> {
@@ -72,10 +81,11 @@ export class PosService {
     return this.http.get<Order>(`${this.apiUrl}/Orders/${orderId}`);
   }
 
-  cancelOrder(orderId: number, userId: number): Observable<{ orderId: number; status: string; message: string }> {
+  /** SEC-01: sólo administrador; quién anula sale del token. */
+  cancelOrder(orderId: number): Observable<{ orderId: number; status: string; message: string }> {
     return this.http.put<{ orderId: number; status: string; message: string }>(
       `${this.apiUrl}/Orders/${orderId}/cancel`,
-      { userId }
+      {}
     );
   }
 
@@ -88,7 +98,7 @@ export class PosService {
     return this.http.get<Inventory[]>(`${this.apiUrl}/Inventories?sectionId=${sectionId}`);
   }
 
-  updateInventory(inventoryId: number, inventory: { userId: number; sectionId: number; currentStock: number; minStock: number; reason: string }): Observable<{ message: string }> {
+  updateInventory(inventoryId: number, inventory: { sectionId: number; currentStock: number; minStock: number; reason: string }): Observable<{ message: string }> {
     return this.http.put<{ message: string }>(`${this.apiUrl}/Inventories/${inventoryId}`, inventory);
   }
 

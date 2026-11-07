@@ -9,7 +9,6 @@ namespace AppPOS.Api.DTOs
 
     public class CreatePurchaseDto
     {
-        public int UserId { get; set; }
         public int SupplierId { get; set; }
         public string? InvoiceNumber { get; set; }
         public int SectionId { get; set; }
@@ -17,8 +16,5 @@ namespace AppPOS.Api.DTOs
         public List<CreatePurchaseDetailDto> Details { get; set; } = new();
     }
 
-    public class CancelPurchaseDto
-    {
-        public int UserId { get; set; }
-    }
+    // SEC-01: CancelPurchaseDto eliminado; quien anula sale del token.
 }

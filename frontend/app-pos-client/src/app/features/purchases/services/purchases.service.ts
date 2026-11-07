@@ -31,10 +31,10 @@ export class PurchasesService {
     return this.http.post<{ purchaseId: number; message: string; totalAmount: number }>(`${this.apiUrl}/Purchases`, purchase);
   }
 
-  cancelPurchase(purchaseId: number, userId: number): Observable<{ purchaseId: number; status: string; message: string }> {
+  cancelPurchase(purchaseId: number): Observable<{ purchaseId: number; status: string; message: string }> {
     return this.http.post<{ purchaseId: number; status: string; message: string }>(
       `${this.apiUrl}/Purchases/${purchaseId}/cancel`,
-      { userId }
+      {}
     );
   }
 }
