@@ -183,6 +183,8 @@ export function buildReceiptLines(data: ReceiptData, paperWidth: EscPosPaperWidt
   push(columns('Fecha:', formatDateTime(data.issuedAt), width));
   push(columns('Cajero:', data.cashier, width));
   push(columns('Unidad:', data.sectionName, width));
+  // INV-01: placa del vehículo (opcional).
+  if (data.vehiclePlate) push(columns('Placa:', data.vehiclePlate, width), { bold: true });
   push(separator);
 
   // Cliente
@@ -199,12 +201,22 @@ export function buildReceiptLines(data: ReceiptData, paperWidth: EscPosPaperWidt
     pushWrapped(item.name);
     if (item.sku) push(`  ${item.sku}`);
     push(columns(`  ${item.quantity} x ${money(item.unitPrice)}`, money(item.subtotal), width));
+    // INV-01: en factura electrónica cada línea indica el impuesto que lleva.
+    if (data.showTax && item.taxLabel) push(`  + ${item.taxLabel}`);
   }
   push(separator);
 
   // Totales (el TOTAL va en tamaño destacado: ocupa la mitad de columnas)
   push(columns('Subtotal:', money(data.subtotal), width));
-  push(columns('IVA / Impuestos:', money(data.taxAmount), width));
+  // INV-01: el impuesto sólo se imprime en factura electrónica (desglosado por tarifa).
+  if (data.showTax) {
+    if (data.taxBreakdown.length === 0) {
+      push(columns('IVA:', money(0), width));
+    }
+    for (const tax of data.taxBreakdown) {
+      push(columns(`${tax.label}:`, money(tax.amount), width));
+    }
+  }
   push(columns('Descuentos:', money(data.discount), width));
   push(separator);
   const totalFitsBig = `TOTAL ${money(data.total)}`.length <= bigWidth;

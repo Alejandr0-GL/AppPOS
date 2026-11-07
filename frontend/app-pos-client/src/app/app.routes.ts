@@ -9,6 +9,7 @@ import { CustomersComponent } from './features/customers/customers';
 import { PurchasesComponent } from './features/purchases/purchases';
 import { SuppliersComponent } from './features/suppliers/suppliers';
 import { EmployeesComponent } from './features/employees/employees';
+import { ExpensesComponent } from './features/expenses/expenses';
 
 export const routes: Routes = [
     {
@@ -24,7 +25,8 @@ export const routes: Routes = [
       { path: 'purchases', component: PurchasesComponent },
       { path: 'suppliers', component: SuppliersComponent },
       { path: 'employees', component: EmployeesComponent },
-      { path: 'customers', component: CustomersComponent }
+      { path: 'customers', component: CustomersComponent },
+      { path: 'expenses', component: ExpensesComponent }
     ] 
   }
 ];

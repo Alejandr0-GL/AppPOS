@@ -2,7 +2,8 @@ import { CommonModule } from '@angular/common';
 import { Component, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
-import { Order, OrderSummary } from '../../../shared/models/pos.models';
+import { Order, OrderDetail, OrderSummary } from '../../../shared/models/pos.models';
+import { FINAL_CONSUMER_DOCUMENT, normalizePlate, taxLabel } from '../../../shared/utils/invoice-tax';
 import { ReceiptData } from '../../../shared/models/receipt.models';
 import { buildReceiptData, isPendingPayment, paymentMethodLabel, statusLabel } from '../../../shared/utils/receipt.mapper';
 import { ReceiptComponent } from '../../../shared/components/receipt/receipt';
@@ -22,7 +23,7 @@ import { PosService } from '../services/pos.service';
         </div>
       </header>
 
-      <div class="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-5">
+      <div class="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
         <label class="text-xs font-bold uppercase tracking-wider text-slate-500">
           Desde
           <input [(ngModel)]="startDate" (ngModelChange)="loadOrders()" type="date" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal text-slate-800" />
@@ -30,6 +31,11 @@ import { PosService } from '../services/pos.service';
         <label class="text-xs font-bold uppercase tracking-wider text-slate-500">
           Hasta
           <input [(ngModel)]="endDate" (ngModelChange)="loadOrders()" type="date" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal text-slate-800" />
+        </label>
+        <!-- INV-01: historial de un vehículo -->
+        <label class="text-xs font-bold uppercase tracking-wider text-slate-500">
+          Placa
+          <input [ngModel]="plate" (ngModelChange)="onPlateChange($event)" type="search" maxlength="10" placeholder="Todas" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm font-normal uppercase text-slate-800 placeholder:font-sans placeholder:normal-case" />
         </label>
         <label class="text-xs font-bold uppercase tracking-wider text-slate-500">
           Cliente / ID
@@ -53,7 +59,7 @@ import { PosService } from '../services/pos.service';
             <option value="ELECTRONIC">Factura electrónica</option>
           </select>
         </label>
-        <button (click)="clearFilters()" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-100 md:col-span-5">
+        <button (click)="clearFilters()" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-100 sm:col-span-2 md:col-span-3 xl:col-span-6">
           Limpiar filtros
         </button>
       </div>
@@ -84,7 +90,7 @@ import { PosService } from '../services/pos.service';
                   <tr (click)="selectOrder(order.orderId)" [class.bg-indigo-50]="selectedOrder()?.orderId === order.orderId" class="cursor-pointer hover:bg-slate-50">
                     <td class="px-4 py-3 font-bold text-slate-800">#{{ order.orderId }}</td>
                     <td class="px-4 py-3 text-slate-600">{{ order.date | date:'dd/MM/yyyy HH:mm' }}</td>
-                    <td class="px-4 py-3"><span class="block font-semibold text-slate-700">{{ order.customer?.name || 'Consumidor final' }}</span><span class="text-xs text-slate-400">{{ order.customer?.documentNumber || 'Sin documento' }}</span></td>
+                    <td class="px-4 py-3"><span class="block font-semibold text-slate-700">{{ saleCustomerName(order) }}</span><span class="text-xs text-slate-400">{{ saleCustomerDocument(order) }}</span>@if (order.vehiclePlate) {<span class="ml-2 rounded bg-slate-900 px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-wider text-white">{{ order.vehiclePlate }}</span>}</td>
                     <td class="px-4 py-3"><span class="block font-semibold text-slate-700">{{ order.user?.username || 'Sin usuario' }}</span><span class="text-xs text-slate-400">ID: {{ order.user?.userId || '-' }}</span></td>
                     <td class="px-4 py-3"><span class="rounded-full bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700">{{ order.invoiceType === 'ELECTRONIC' ? 'Factura electrónica' : 'Factura de venta' }}</span></td>
                     <td class="px-4 py-3 font-semibold text-slate-600">{{ paymentLabel(order.paymentMethod) }}</td>
@@ -109,10 +115,10 @@ import { PosService } from '../services/pos.service';
               <div><p class="text-xs font-bold uppercase tracking-wider text-indigo-600">Detalle de venta</p><h3 class="text-2xl font-black text-slate-900">Orden #{{ order.orderId }}</h3><p class="text-sm text-slate-500">{{ order.invoiceType === 'ELECTRONIC' ? 'Factura electrónica' : 'Factura de venta' }} · {{ order.date | date:'dd/MM/yyyy HH:mm' }}</p></div>
               <button (click)="closeOrderDetail()" class="rounded-md px-3 py-1 text-2xl font-bold text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Cerrar detalle">&times;</button>
             </div>
-            <div class="grid gap-3 border-b border-slate-200 bg-slate-50 p-5 text-sm md:grid-cols-4"><div><span class="block text-xs uppercase text-slate-500">Cliente</span><strong class="text-slate-800">{{ order.customer?.name || 'Consumidor final' }}</strong><span class="block text-slate-500">Doc: {{ order.customer?.documentNumber || 'Sin documento' }}</span></div><div><span class="block text-xs uppercase text-slate-500">Cajero</span><strong class="text-slate-800">{{ order.user?.username || 'Sin usuario' }}</strong><span class="block text-slate-500">ID: {{ order.user?.userId || '-' }}</span></div><div><span class="block text-xs uppercase text-slate-500">Método de pago</span><strong class="text-slate-800">{{ paymentLabel(order.paymentMethod) }}</strong></div><div><span class="block text-xs uppercase text-slate-500">Estado</span><span class="rounded-full px-2 py-1 text-xs font-bold" [ngClass]="statusBadgeClass(order.status)">{{ formatStatus(order.status) }}</span></div></div>
+            <div class="grid gap-3 border-b border-slate-200 bg-slate-50 p-5 text-sm md:grid-cols-4"><div><span class="block text-xs uppercase text-slate-500">Cliente</span><strong class="text-slate-800">{{ saleCustomerName(order) }}</strong><span class="block text-slate-500">Doc: {{ saleCustomerDocument(order) }}</span>@if (order.vehiclePlate) {<span class="mt-1 inline-block rounded bg-slate-900 px-1.5 py-0.5 font-mono text-xs font-bold tracking-wider text-white">{{ order.vehiclePlate }}</span>}</div><div><span class="block text-xs uppercase text-slate-500">Cajero</span><strong class="text-slate-800">{{ order.user?.username || 'Sin usuario' }}</strong><span class="block text-slate-500">ID: {{ order.user?.userId || '-' }}</span></div><div><span class="block text-xs uppercase text-slate-500">Método de pago</span><strong class="text-slate-800">{{ paymentLabel(order.paymentMethod) }}</strong></div><div><span class="block text-xs uppercase text-slate-500">Estado</span><span class="rounded-full px-2 py-1 text-xs font-bold" [ngClass]="statusBadgeClass(order.status)">{{ formatStatus(order.status) }}</span></div></div>
             <div class="flex-1 overflow-y-auto p-5"><h4 class="mb-3 font-bold text-slate-800">Productos</h4><div class="overflow-x-auto"><table class="w-full min-w-[680px] text-left text-sm"><thead class="bg-slate-50 text-xs uppercase text-slate-500"><tr><th class="px-3 py-2">Producto / SKU</th><th class="px-3 py-2">Cantidad</th><th class="px-3 py-2">Precio unitario</th><th class="px-3 py-2">IVA / Tax</th><th class="px-3 py-2 text-right">Subtotal</th></tr></thead><tbody class="divide-y divide-slate-100">
               @for (detail of order.details; track detail.orderDetailId) {
-                <tr><td class="px-3 py-3"><strong class="block text-slate-800">{{ detail.description || detail.product?.name || 'Producto #' + detail.productId }}@if (detail.description) { <span class="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-slate-500">Otros</span> }</strong><span class="text-xs text-slate-500">SKU: {{ detail.product?.sku || 'Sin SKU' }}</span></td><td class="px-3 py-3 text-slate-700">{{ detail.quantity }}</td><td class="px-3 py-3 text-slate-700">{{ detail.unitPrice | currency:'COP':'symbol':'1.0-0' }}@if (detail.listPrice != null && detail.listPrice !== detail.unitPrice) {<span class="block text-xs text-slate-400">Original: <span class="line-through">{{ detail.listPrice | currency:'COP':'symbol':'1.0-0' }}</span> <span class="font-bold" [class.text-emerald-600]="detail.unitPrice > detail.listPrice" [class.text-amber-600]="detail.unitPrice < detail.listPrice">({{ detail.unitPrice > detail.listPrice ? '+' : '' }}{{ detail.unitPrice - detail.listPrice | currency:'COP':'symbol':'1.0-0' }})</span></span>}</td><td class="px-3 py-3 text-slate-700">{{ detail.taxAmount | currency:'COP':'symbol':'1.0-0' }}</td><td class="px-3 py-3 text-right font-bold text-slate-800">{{ detail.subtotal | currency:'COP':'symbol':'1.0-0' }}</td></tr>
+                <tr><td class="px-3 py-3"><strong class="block text-slate-800">{{ detail.description || detail.product?.name || 'Producto #' + detail.productId }}@if (detail.description) { <span class="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-slate-500">Otros</span> }</strong><span class="text-xs text-slate-500">SKU: {{ detail.product?.sku || 'Sin SKU' }}</span></td><td class="px-3 py-3 text-slate-700">{{ detail.quantity }}</td><td class="px-3 py-3 text-slate-700">{{ detail.unitPrice | currency:'COP':'symbol':'1.0-0' }}@if (detail.listPrice != null && detail.listPrice !== detail.unitPrice) {<span class="block text-xs text-slate-400">Original: <span class="line-through">{{ detail.listPrice | currency:'COP':'symbol':'1.0-0' }}</span> <span class="font-bold" [class.text-emerald-600]="detail.unitPrice > detail.listPrice" [class.text-amber-600]="detail.unitPrice < detail.listPrice">({{ detail.unitPrice > detail.listPrice ? '+' : '' }}{{ detail.unitPrice - detail.listPrice | currency:'COP':'symbol':'1.0-0' }})</span></span>}</td><td class="px-3 py-3 text-slate-700">@if (detail.taxAmount > 0) { <span>{{ detail.taxAmount | currency:'COP':'symbol':'1.0-0' }}</span><span class="block text-xs text-slate-400">{{ detailTaxLabel(detail) }}</span>} @else {<span class="text-slate-400">—</span>}</td><td class="px-3 py-3 text-right font-bold text-slate-800">{{ detail.subtotal | currency:'COP':'symbol':'1.0-0' }}</td></tr>
               }
               </tbody></table></div>
               <!-- POS-07: motivo único del ajuste de precio de la venta -->
@@ -120,7 +126,7 @@ import { PosService } from '../services/pos.service';
                 <p class="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"><span class="font-bold">Motivo del ajuste de precio:</span> {{ order.priceChangeReason }}</p>
               }
             </div>
-            <div class="border-t border-slate-200 p-5"><div class="ml-auto max-w-sm space-y-2 text-sm"><div class="flex justify-between text-slate-500"><span>Subtotal base</span><span>{{ baseAmount(order) | currency:'COP':'symbol':'1.0-0' }}</span></div><div class="flex justify-between text-slate-500"><span>Impuestos (IVA)</span><span>{{ taxAmount(order) | currency:'COP':'symbol':'1.0-0' }}</span></div>@if (order.receivedAmount != null) {<div class="flex justify-between text-slate-500"><span>Efectivo recibido</span><span>{{ order.receivedAmount | currency:'COP':'symbol':'1.0-0' }}</span></div><div class="flex justify-between text-slate-500"><span>Cambio</span><span>{{ (order.changeAmount ?? 0) | currency:'COP':'symbol':'1.0-0' }}</span></div>}<div class="flex justify-between border-t border-slate-200 pt-2 text-xl font-black text-slate-900"><span>Total pagar</span><span class="text-emerald-600">{{ order.totalAmount | currency:'COP':'symbol':'1.0-0' }}</span></div></div>
+            <div class="border-t border-slate-200 p-5"><div class="ml-auto max-w-sm space-y-2 text-sm"><div class="flex justify-between text-slate-500"><span>Subtotal base</span><span>{{ baseAmount(order) | currency:'COP':'symbol':'1.0-0' }}</span></div>@if (order.invoiceType === 'ELECTRONIC' || taxAmount(order) > 0) {<div class="flex justify-between text-slate-500"><span>Impuestos (IVA)</span><span>{{ taxAmount(order) | currency:'COP':'symbol':'1.0-0' }}</span></div>}@if (order.receivedAmount != null) {<div class="flex justify-between text-slate-500"><span>Efectivo recibido</span><span>{{ order.receivedAmount | currency:'COP':'symbol':'1.0-0' }}</span></div><div class="flex justify-between text-slate-500"><span>Cambio</span><span>{{ (order.changeAmount ?? 0) | currency:'COP':'symbol':'1.0-0' }}</span></div>}<div class="flex justify-between border-t border-slate-200 pt-2 text-xl font-black text-slate-900"><span>Total pagar</span><span class="text-emerald-600">{{ order.totalAmount | currency:'COP':'symbol':'1.0-0' }}</span></div></div>
               <div class="mt-4 flex flex-wrap items-center gap-2">
                 <button (click)="openReceipt(order)" class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-indigo-600">
                   Ver recibo
@@ -156,7 +162,7 @@ import { PosService } from '../services/pos.service';
           </div>
 
           <div class="mt-4 rounded-xl bg-slate-50 p-3 text-sm">
-            <div class="flex justify-between gap-2"><span class="text-slate-500">Cliente</span><strong class="truncate text-slate-800">{{ order.customer?.name || 'Consumidor final' }}</strong></div>
+            <div class="flex justify-between gap-2"><span class="text-slate-500">Cliente</span><strong class="truncate text-slate-800">{{ saleCustomerName(order) }}</strong></div>
             <div class="mt-1 flex justify-between gap-2"><span class="text-slate-500">Total a pagar</span><strong class="text-emerald-600">{{ order.totalAmount | currency:'COP':'symbol':'1.0-0' }}</strong></div>
           </div>
 
@@ -238,7 +244,8 @@ export class SalesHistoryComponent {
       customerId: this.customerId || undefined,
       status: this.status || undefined,
       sectionId: this.selectedSectionId() || undefined,
-      invoiceType: this.invoiceType || undefined
+      invoiceType: this.invoiceType || undefined,
+      plate: this.plate || undefined
     }).subscribe({
       next: orders => {
         this.orders.set(orders);
@@ -259,6 +266,7 @@ export class SalesHistoryComponent {
     this.customerId = null;
     this.status = '';
     this.invoiceType = '';
+    this.plate = '';
     this.loadOrders();
   }
 
@@ -384,6 +392,34 @@ export class SalesHistoryComponent {
 
   taxAmount(order: Order): number {
     return order.details.reduce((total, detail) => total + detail.taxAmount, 0);
+  }
+
+  // ---- INV-01: placa y "a nombre de" congelados en la venta ----
+  plate = '';
+  private plateTimer: ReturnType<typeof setTimeout> | null = null;
+
+  onPlateChange(value: string): void {
+    this.plate = normalizePlate(value);
+    // Pequeña espera para no consultar en cada tecla.
+    if (this.plateTimer) clearTimeout(this.plateTimer);
+    this.plateTimer = setTimeout(() => this.loadOrders(), 300);
+  }
+
+  saleCustomerName(order: OrderSummary): string {
+    return order.customerName?.trim() || order.customer?.name || 'Consumidor final';
+  }
+
+  saleCustomerDocument(order: OrderSummary): string {
+    if (order.customerDocument?.trim()) return order.customerDocument.trim();
+    const document = order.customer?.documentNumber;
+    return document && document !== FINAL_CONSUMER_DOCUMENT ? document : 'Sin documento';
+  }
+
+  /** INV-01: "IVA 19%" con la tarifa congelada al vender. */
+  detailTaxLabel(detail: OrderDetail): string {
+    const base = detail.subtotal - detail.taxAmount;
+    const percentage = Number(detail.appliedTaxPercentage ?? 0) || (base > 0 ? Math.round(detail.taxAmount * 10000 / base) / 100 : 0);
+    return taxLabel(detail.taxName, percentage);
   }
 
   cancelOrder(orderId: number): void {

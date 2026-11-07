@@ -16,6 +16,8 @@ export interface Product {
   imageUrl?: string | null;
   /** POS-07: ítem abierto ("Otros"): descripción, precio y costo se escriben en cada venta. */
   isOpenItem?: boolean;
+  /** INV-01: impuesto del producto (sólo se cobra en factura electrónica). */
+  tax?: { taxId: number; name: string; percentage: number } | null;
 }
 
 export interface Customer {
@@ -62,7 +64,14 @@ export interface CreateOrderDetailDto {
 
 export interface CreateOrderDto {
   userId: number;
-  customerId: number;
+  /** Cliente guardado (frecuente); null = "Consumidor Final" con el nombre escrito. */
+  customerId: number | null;
+  /** INV-01: "a nombre de" (texto libre). */
+  customerName?: string | null;
+  /** INV-01: documento CC/NIT (obligatorio en factura electrónica). */
+  customerDocument?: string | null;
+  /** INV-01: placa del vehículo (opcional). */
+  vehiclePlate?: string | null;
   sectionId: number;
   paymentMethod: string;
   receivedAmount?: number | null;
@@ -88,6 +97,12 @@ export interface OrderSummary {
   priceChangeReason?: string | null;
   invoiceType: 'POS' | 'ELECTRONIC' | string;
   status: string;
+  /** INV-01: placa del vehículo (normalizada). */
+  vehiclePlate?: string | null;
+  /** INV-01: "a nombre de" congelado en la venta (puede no estar en Clientes). */
+  customerName?: string | null;
+  /** INV-01: documento de la factura congelado en la venta. */
+  customerDocument?: string | null;
   customer?: Pick<Customer, 'customerId' | 'name' | 'documentNumber'> | null;
   user?: { userId: number; username: string } | null;
   cancelledBy?: { userId: number; username: string } | null;
@@ -110,7 +125,13 @@ export interface OrderDetail {
   commissionAmount?: number;
   appliedBusinessProfitPercentage?: number;
   localProfitAmount?: number;
+  /** Impuesto total de la línea (sólo factura electrónica). */
   taxAmount: number;
+  /** INV-01: tarifa congelada al vender (0 = sin impuesto). */
+  appliedTaxPercentage?: number;
+  /** INV-01: nombre del impuesto congelado al vender (p. ej. "IVA 19%"). */
+  taxName?: string | null;
+  /** Total de la línea: base + impuesto. */
   subtotal: number;
   product?: Pick<Product, 'productId' | 'sku' | 'barcode' | 'name'> | null;
 }

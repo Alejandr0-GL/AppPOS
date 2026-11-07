@@ -175,6 +175,97 @@ namespace AppPOS.Api.Migrations
                     b.ToTable("Employees");
                 });
 
+            modelBuilder.Entity("AppPOS.Api.Models.Expense", b =>
+                {
+                    b.Property<int>("ExpenseId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("expense_id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ExpenseId"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18, 2)")
+                        .HasColumnName("amount");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)")
+                        .HasColumnName("category");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("(sysdatetime())");
+
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("date")
+                        .HasColumnName("date");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)")
+                        .HasColumnName("description");
+
+                    b.Property<bool>("IsVoided")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_voided");
+
+                    b.Property<string>("PaymentMethod")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("payment_method");
+
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("scope");
+
+                    b.Property<int>("SectionId")
+                        .HasColumnType("int")
+                        .HasColumnName("section_id");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int")
+                        .HasColumnName("user_id");
+
+                    b.Property<string>("VoidReason")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)")
+                        .HasColumnName("void_reason");
+
+                    b.Property<DateTime?>("VoidedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("voided_at");
+
+                    b.HasKey("ExpenseId");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex(new[] { "Date" }, "IX_Expenses_Date");
+
+                    b.HasIndex(new[] { "Scope", "Date" }, "IX_Expenses_Scope_Date");
+
+                    b.HasIndex(new[] { "SectionId", "Date" }, "IX_Expenses_Section_Date");
+
+                    b.ToTable("Expenses", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Expenses_Amount", "[amount] > 0");
+
+                            t.HasCheckConstraint("CK_Expenses_Scope", "[scope] IN ('BUSINESS', 'PERSONAL')");
+                        });
+                });
+
             modelBuilder.Entity("AppPOS.Api.Models.Inventory", b =>
                 {
                     b.Property<int>("InventoryId")
@@ -235,9 +326,20 @@ namespace AppPOS.Api.Migrations
                         .HasColumnType("decimal(18, 2)")
                         .HasColumnName("change_amount");
 
+                    b.Property<string>("CustomerDocument")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)")
+                        .HasColumnName("customer_document");
+
                     b.Property<int>("CustomerId")
                         .HasColumnType("int")
                         .HasColumnName("customer_id");
+
+                    b.Property<string>("CustomerName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)")
+                        .HasColumnName("customer_name");
 
                     b.Property<DateTime>("Date")
                         .ValueGeneratedOnAdd()
@@ -287,6 +389,11 @@ namespace AppPOS.Api.Migrations
                         .HasColumnType("int")
                         .HasColumnName("user_id");
 
+                    b.Property<string>("VehiclePlate")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)")
+                        .HasColumnName("vehicle_plate");
+
                     b.HasKey("OrderId")
                         .HasName("PK__Orders__4659622967A8440B");
 
@@ -297,6 +404,8 @@ namespace AppPOS.Api.Migrations
                     b.HasIndex("SectionId");
 
                     b.HasIndex("UserId");
+
+                    b.HasIndex(new[] { "VehiclePlate" }, "IX_Orders_VehiclePlate");
 
                     b.ToTable("Orders");
                 });
@@ -321,6 +430,12 @@ namespace AppPOS.Api.Migrations
                         .HasColumnType("decimal(5, 2)")
                         .HasDefaultValue(0m)
                         .HasColumnName("applied_commission_percentage");
+
+                    b.Property<decimal>("AppliedTaxPercentage")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(5, 2)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("applied_tax_percentage");
 
                     b.Property<decimal>("CommissionAmount")
                         .ValueGeneratedOnAdd()
@@ -366,6 +481,11 @@ namespace AppPOS.Api.Migrations
                     b.Property<decimal>("TaxAmount")
                         .HasColumnType("decimal(18, 2)")
                         .HasColumnName("tax_amount");
+
+                    b.Property<string>("TaxName")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("tax_name");
 
                     b.Property<decimal>("UnitCost")
                         .HasColumnType("decimal(18, 2)")
@@ -811,6 +931,25 @@ namespace AppPOS.Api.Migrations
                         .HasConstraintName("FK_Categories_Sections");
                 });
 
+            modelBuilder.Entity("AppPOS.Api.Models.Expense", b =>
+                {
+                    b.HasOne("AppPOS.Api.Models.Section", "Section")
+                        .WithMany("Expenses")
+                        .HasForeignKey("SectionId")
+                        .IsRequired()
+                        .HasConstraintName("FK_Expenses_Sections");
+
+                    b.HasOne("AppPOS.Api.Models.User", "User")
+                        .WithMany("Expenses")
+                        .HasForeignKey("UserId")
+                        .IsRequired()
+                        .HasConstraintName("FK_Expenses_Users");
+
+                    b.Navigation("Section");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("AppPOS.Api.Models.Inventory", b =>
                 {
                     b.HasOne("AppPOS.Api.Models.Product", "Product")
@@ -1006,6 +1145,8 @@ namespace AppPOS.Api.Migrations
 
             modelBuilder.Entity("AppPOS.Api.Models.Section", b =>
                 {
+                    b.Navigation("Expenses");
+
                     b.Navigation("Inventories");
 
                     b.Navigation("PurchaseDetails");
@@ -1025,6 +1166,8 @@ namespace AppPOS.Api.Migrations
 
             modelBuilder.Entity("AppPOS.Api.Models.User", b =>
                 {
+                    b.Navigation("Expenses");
+
                     b.Navigation("Purchases");
 
                     b.Navigation("StockMovements");

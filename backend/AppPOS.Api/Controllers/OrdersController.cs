@@ -28,9 +28,18 @@ namespace AppPOS.Api.Controllers
             [FromQuery] int? customerId,
             [FromQuery] string? status,
             [FromQuery] int? sectionId,
-            [FromQuery] string? invoiceType)
+            [FromQuery] string? invoiceType,
+            [FromQuery] string? plate)
         {
             var query = _context.Orders.AsQueryable();
+
+            // INV-01: historial de un vehículo (coincidencia parcial, sin espacios ni guiones).
+            if (!string.IsNullOrWhiteSpace(plate))
+            {
+                var normalizedPlate = new string(plate.Where(char.IsLetterOrDigit).ToArray()).ToUpperInvariant();
+                if (normalizedPlate.Length > 0)
+                    query = query.Where(o => o.VehiclePlate != null && o.VehiclePlate.Contains(normalizedPlate));
+            }
 
             if (startDate.HasValue)
             {
@@ -80,6 +89,9 @@ namespace AppPOS.Api.Controllers
                     o.InvoiceType,
                     o.CancelledByUserId,
                     o.Status,
+                    o.VehiclePlate,
+                    o.CustomerName,
+                    o.CustomerDocument,
                             Customer = o.Customer != null ? new
                             {
                                 o.Customer.CustomerId,
@@ -124,6 +136,9 @@ namespace AppPOS.Api.Controllers
                     o.PaidAt,
                     o.PriceChangeReason,
                     o.InvoiceType,
+                    o.VehiclePlate,
+                    o.CustomerName,
+                    o.CustomerDocument,
                     o.CancelledByUserId,
                     o.Status,
                     Customer = o.Customer != null ? new
@@ -168,6 +183,8 @@ namespace AppPOS.Api.Controllers
                             ? null
                             : new { detail.Employee.EmployeeId, detail.Employee.Name },
                         detail.TaxAmount,
+                        detail.AppliedTaxPercentage,
+                        detail.TaxName,
                         detail.Subtotal,
                         Product = _context.Products
                             .Where(product => product.ProductId == detail.ProductId)
@@ -225,6 +242,54 @@ namespace AppPOS.Api.Controllers
             try
             {
                 bool isElectronic = dto.InvoiceType?.ToUpper() == "ELECTRONIC";
+
+                // INV-01: "a nombre de" quién sale la factura. El cliente guardado es opcional (sólo los
+                // frecuentes están en Clientes); si no se envía, la venta queda en "Consumidor Final"
+                // con el nombre y documento escritos en el POS. Ambos se congelan en la venta.
+                Customer? savedCustomer = null;
+                if (dto.CustomerId is int requestedCustomerId)
+                {
+                    savedCustomer = await _context.Customers.FirstOrDefaultAsync(c => c.CustomerId == requestedCustomerId);
+                    if (savedCustomer == null)
+                        return BadRequest(new { message = "El cliente seleccionado no existe." });
+                }
+                else
+                {
+                    savedCustomer = await _context.Customers.FirstOrDefaultAsync(c => c.DocumentNumber == Customer.FinalConsumerDocument);
+                    if (savedCustomer == null)
+                    {
+                        savedCustomer = new Customer { Name = "Consumidor Final", DocumentNumber = Customer.FinalConsumerDocument, DocumentType = "CC" };
+                        _context.Customers.Add(savedCustomer);
+                        await _context.SaveChangesAsync();
+                    }
+                }
+
+                var savedIsFinalConsumer = savedCustomer.DocumentNumber == Customer.FinalConsumerDocument;
+                var customerName = dto.CustomerName?.Trim();
+                if (string.IsNullOrWhiteSpace(customerName))
+                    customerName = savedIsFinalConsumer ? "Consumidor final" : savedCustomer.Name;
+                var customerDocument = dto.CustomerDocument?.Trim();
+                if (string.IsNullOrWhiteSpace(customerDocument))
+                    customerDocument = savedIsFinalConsumer ? null : savedCustomer.DocumentNumber;
+
+                if (customerName.Length > 100)
+                    return BadRequest(new { message = "El nombre de la factura no puede superar 100 caracteres." });
+                if (customerDocument?.Length > 30)
+                    return BadRequest(new { message = "El documento de la factura no puede superar 30 caracteres." });
+
+                // La factura electrónica se replica en el software de facturación (allá está el RUT):
+                // sólo exige saber a nombre de quién sale. El documento no se pide en el POS.
+                if (isElectronic && customerName.Equals("Consumidor final", StringComparison.OrdinalIgnoreCase))
+                    return BadRequest(new { message = "Escribe a nombre de quién sale la factura electrónica." });
+
+                // INV-01: placa opcional, normalizada (ABC123 / ABC12D). Sólo letras y números.
+                string? vehiclePlate = null;
+                if (!string.IsNullOrWhiteSpace(dto.VehiclePlate))
+                {
+                    vehiclePlate = new string(dto.VehiclePlate.Where(char.IsLetterOrDigit).ToArray()).ToUpperInvariant();
+                    if (vehiclePlate.Length < 3 || vehiclePlate.Length > 10)
+                        return BadRequest(new { message = "La placa no es válida (usa sólo letras y números, p. ej. ABC123)." });
+                }
 
                 // Obtener los IDs de los productos solicitados para consultar sus tarifas de IVA
                 var productIds = dto.Details.Select(d => d.ProductId).Distinct().ToList();
@@ -326,11 +391,18 @@ namespace AppPOS.Api.Controllers
                     }
                     decimal lineBase = item.Quantity * unitPrice;
                     decimal calculatedTax = 0m;
+                    decimal appliedTaxPercentage = 0m;
+                    string? taxName = null;
 
-                    // Solo si es Factura Electrónica se calcula el IVA dependiendo del producto
-                    if (isElectronic && product.Tax != null)
+                    // INV-01: el impuesto del producto (normalmente IVA) se cobra SÓLO en factura
+                    // electrónica, encima del precio. En factura de venta se cobra el precio y ya.
+                    // Los ítems "Otros" nunca llevan impuesto. El impuesto no es ganancia: la
+                    // comisión y la ganancia se calculan sobre el precio sin impuesto.
+                    if (isElectronic && !product.IsOpenItem && product.Tax != null && product.Tax.Percentage > 0m)
                     {
-                        calculatedTax = lineBase * (product.Tax.Percentage / 100m);
+                        appliedTaxPercentage = product.Tax.Percentage;
+                        taxName = product.Tax.Name;
+                        calculatedTax = Math.Round(lineBase * (appliedTaxPercentage / 100m), 2, MidpointRounding.AwayFromZero);
                     }
 
                     decimal lineSubtotal = lineBase + calculatedTax;
@@ -359,6 +431,8 @@ namespace AppPOS.Api.Controllers
                         AppliedBusinessProfitPercentage = product.BusinessProfitPercentage,
                         LocalProfitAmount = localProfitAmount,
                         TaxAmount = calculatedTax,
+                        AppliedTaxPercentage = appliedTaxPercentage,
+                        TaxName = taxName,
                         Subtotal = lineSubtotal
                     });
                 }
@@ -400,7 +474,10 @@ namespace AppPOS.Api.Controllers
                 var order = new Order
                 {
                     PriceChangeReason = anyPriceChanged && !string.IsNullOrWhiteSpace(priceChangeReason) ? priceChangeReason : null,
-                    CustomerId = dto.CustomerId,
+                    CustomerId = savedCustomer.CustomerId,
+                    CustomerName = customerName,
+                    CustomerDocument = customerDocument,
+                    VehiclePlate = vehiclePlate,
                     SectionId = dto.SectionId,
                     UserId = dto.UserId,
                     Date = DateTime.Now,

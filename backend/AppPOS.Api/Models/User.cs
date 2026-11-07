@@ -21,5 +21,7 @@ public partial class User
 
     public virtual ICollection<Purchase> Purchases { get; set; } = new List<Purchase>();
 
+    public virtual ICollection<Expense> Expenses { get; set; } = new List<Expense>();
+
     public virtual ICollection<StockMovement> StockMovements { get; set; } = new List<StockMovement>();
 }

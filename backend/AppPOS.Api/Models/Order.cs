@@ -41,6 +41,22 @@ public partial class Order
 
     public string InvoiceType { get; set; } = "POS";
 
+    /// <summary>
+    /// INV-01: placa del vehículo (opcional), normalizada en mayúsculas sin espacios ni guiones.
+    /// Permite consultar el historial de un carro.
+    /// </summary>
+    public string? VehiclePlate { get; set; }
+
+    /// <summary>
+    /// INV-01: "a nombre de" quién sale la factura, tal como se escribió en la venta (congelado).
+    /// No hace falta que el cliente esté guardado en Clientes: en ese caso <see cref="CustomerId"/>
+    /// apunta a "Consumidor Final".
+    /// </summary>
+    public string CustomerName { get; set; } = null!;
+
+    /// <summary>INV-01: documento (CC/NIT) del cliente guardado, congelado. Null en ventas sin cliente guardado.</summary>
+    public string? CustomerDocument { get; set; }
+
     public string Status { get; set; } = null!;
 
     public virtual Customer Customer { get; set; } = null!;

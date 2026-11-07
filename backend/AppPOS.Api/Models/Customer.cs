@@ -6,6 +6,9 @@ namespace AppPOS.Api.Models;
 
 public partial class Customer
 {
+    /// <summary>Documento genérico de la DIAN para "Consumidor Final" (cliente por defecto de las ventas).</summary>
+    public const string FinalConsumerDocument = "222222222222";
+
     public int CustomerId { get; set; }
 
     public string Name { get; set; } = null!;

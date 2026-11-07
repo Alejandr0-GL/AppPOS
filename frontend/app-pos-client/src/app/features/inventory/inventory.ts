@@ -51,7 +51,7 @@ interface InventoryDraft {
                     <td class="px-4 py-3 font-bold text-slate-800">{{ item.currentStock }}</td>
                     <td class="px-4 py-3 text-slate-600">{{ item.minStock }}</td>
                     <td class="px-4 py-3"><span class="rounded-full px-2 py-1 text-xs font-bold" [class.bg-red-100]="item.currentStock <= item.minStock" [class.text-red-700]="item.currentStock <= item.minStock" [class.bg-emerald-100]="item.currentStock > item.minStock" [class.text-emerald-700]="item.currentStock > item.minStock">{{ item.currentStock <= item.minStock ? 'Reponer' : 'Normal' }}</span></td>
-                    <td class="px-4 py-3 text-right"><button (click)="openDetails(item)" class="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-indigo-600">Ver Kardex</button></td>
+                    <td class="px-4 py-3 text-right"><button (click)="openDetails(item)" class="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-indigo-600">Ver Detalles</button></td>
                   </tr>
                 } @empty {
                   <tr><td colspan="7" class="px-4 py-12 text-center text-sm text-slate-400">No hay inventarios para la unidad activa.</td></tr>
@@ -67,7 +67,7 @@ interface InventoryDraft {
         <div class="fixed inset-0 z-40 bg-slate-950/40" (click)="closeDetails()"></div>
         <aside class="fixed inset-y-0 right-0 z-50 flex w-full max-w-xl flex-col overflow-y-auto bg-white shadow-2xl" aria-label="Detalle de inventario">
           <div class="flex items-start justify-between border-b border-slate-200 p-5">
-            <div><p class="text-xs font-bold uppercase tracking-wider text-indigo-600">Kardex de producto</p><h3 class="text-xl font-black text-slate-900">{{ item.product.name }}</h3><p class="text-sm text-slate-500">SKU: {{ item.product.sku }} · {{ item.product.category?.name || 'Sin categoría' }}</p></div>
+            <div><p class="text-xs font-bold uppercase tracking-wider text-indigo-600">Detalles de producto</p><h3 class="text-xl font-black text-slate-900">{{ item.product.name }}</h3><p class="text-sm text-slate-500">SKU: {{ item.product.sku }} · {{ item.product.category?.name || 'Sin categoría' }}</p></div>
             <button (click)="closeDetails()" class="rounded-md px-2 py-1 text-xl font-bold text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Cerrar detalle">&times;</button>
           </div>
           <div class="grid grid-cols-2 gap-3 border-b border-slate-200 p-5"><div class="rounded-xl bg-slate-100 p-3"><span class="block text-xs uppercase text-slate-500">Stock actual</span><strong class="text-2xl text-slate-900">{{ item.currentStock }}</strong></div><div class="rounded-xl bg-amber-50 p-3"><span class="block text-xs uppercase text-amber-700">Stock mínimo</span><strong class="text-2xl text-amber-900">{{ item.minStock }}</strong></div></div>
@@ -121,7 +121,7 @@ export class InventoryComponent {
     this.movements.set([]);
     this.posService.getStockMovements(item.sectionId, item.productId).subscribe({
       next: movements => this.movements.set(movements),
-      error: () => this.errorMessage.set('No fue posible cargar el Kardex del producto.')
+      error: () => this.errorMessage.set('No fue posible cargar detalles del producto.')
     });
   }
 
