@@ -16,6 +16,8 @@ namespace AppPOS.Api.DTOs
         public bool IsService { get; set; }
         public decimal EmployeeCommissionPercentage { get; set; }
         public decimal BusinessProfitPercentage { get; set; } = 100m;
+        /// <summary>POS-07: ítem abierto ("Otros"): descripción, precio y costo se escriben en cada venta.</summary>
+        public bool IsOpenItem { get; set; }
     }
 
     public class UpdateProductDto
@@ -32,5 +34,7 @@ namespace AppPOS.Api.DTOs
         public bool IsService { get; set; }
         public decimal EmployeeCommissionPercentage { get; set; }
         public decimal BusinessProfitPercentage { get; set; } = 100m;
+        /// <summary>POS-07: ítem abierto ("Otros").</summary>
+        public bool IsOpenItem { get; set; }
     }
 }

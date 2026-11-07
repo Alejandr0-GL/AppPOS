@@ -1,4 +1,5 @@
 import { Injectable, inject } from '@angular/core';
+import { API_URL } from '../../../shared/config/api.config';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { CreatePurchaseDto, Product, PurchaseSummary, Supplier } from '../../../shared/models/pos.models';
@@ -6,7 +7,7 @@ import { CreatePurchaseDto, Product, PurchaseSummary, Supplier } from '../../../
 @Injectable({ providedIn: 'root' })
 export class PurchasesService {
   private readonly http = inject(HttpClient);
-  private readonly apiUrl = 'https://localhost:7122/api';
+  private readonly apiUrl = API_URL;
 
   getPurchases(filters: { sectionId?: number; startDate?: string; endDate?: string } = {}): Observable<PurchaseSummary[]> {
     const params = new URLSearchParams();

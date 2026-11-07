@@ -33,6 +33,12 @@ public partial class Order
     /// </summary>
     public DateTime? PaidAt { get; set; }
 
+    /// <summary>
+    /// POS-07: motivo opcional (uno por venta) cuando alguna línea se cobró a un precio distinto
+    /// al de lista. Qué líneas cambiaron se sabe por OrderDetails.unit_price ≠ list_price.
+    /// </summary>
+    public string? PriceChangeReason { get; set; }
+
     public string InvoiceType { get; set; } = "POS";
 
     public string Status { get; set; } = null!;

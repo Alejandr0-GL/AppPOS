@@ -28,6 +28,13 @@ public partial class Product
 
     public bool IsService { get; set; }
 
+    /// <summary>
+    /// POS-07: ítem abierto ("Otros"): repuestos no inventariados, sobrantes, ventas ocasionales.
+    /// En cada venta se escriben descripción, precio y costo (opcional). Siempre se comporta como
+    /// servicio (no maneja inventario) y aparece en el POS de todas las unidades de negocio.
+    /// </summary>
+    public bool IsOpenItem { get; set; }
+
     public decimal EmployeeCommissionPercentage { get; set; }
 
     public decimal BusinessProfitPercentage { get; set; } = 100m;

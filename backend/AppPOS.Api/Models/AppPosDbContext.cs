@@ -182,6 +182,9 @@ public partial class AppPosDbContext : DbContext
                 .HasColumnName("change_amount");
             entity.Property(e => e.PaidAt)
                 .HasColumnName("paid_at");
+            entity.Property(e => e.PriceChangeReason)
+                .HasMaxLength(200)
+                .HasColumnName("price_change_reason");
             entity.Property(e => e.InvoiceType)
                 .HasMaxLength(20)
                 .HasColumnName("invoice_type");
@@ -251,6 +254,14 @@ public partial class AppPosDbContext : DbContext
                 .HasColumnType("decimal(18, 2)")
                 .HasColumnName("unit_price");
 
+            entity.Property(e => e.ListPrice)
+                .HasColumnType("decimal(18, 2)")
+                .HasColumnName("list_price");
+
+            entity.Property(e => e.Description)
+                .HasMaxLength(150)
+                .HasColumnName("description");
+
             entity.Property(e => e.UnitCost)
                 .HasColumnType("decimal(18, 2)")
                 .HasColumnName("unit_cost");
@@ -289,6 +300,9 @@ public partial class AppPosDbContext : DbContext
             entity.Property(e => e.IsService)
                 .HasDefaultValue(false)
                 .HasColumnName("is_service");
+            entity.Property(e => e.IsOpenItem)
+                .HasDefaultValue(false)
+                .HasColumnName("is_open_item");
             entity.Property(e => e.EmployeeCommissionPercentage)
                 .HasDefaultValue(0m)
                 .HasColumnType("decimal(5, 2)")

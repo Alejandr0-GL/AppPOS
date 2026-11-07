@@ -13,7 +13,20 @@ public partial class OrderDetail
 
     public int Quantity { get; set; }
 
+    /// <summary>Precio realmente cobrado por unidad (puede diferir del catálogo, ver <see cref="ListPrice"/>).</summary>
     public decimal UnitPrice { get; set; }
+
+    /// <summary>
+    /// POS-07: precio de catálogo (Product.SalePrice) congelado al vender. Si difiere de
+    /// <see cref="UnitPrice"/>, el cajero cambió el precio de la línea (descuento o recargo).
+    /// </summary>
+    public decimal ListPrice { get; set; }
+
+    /// <summary>
+    /// POS-07: descripción escrita por el cajero en ítems abiertos ("Otros"), p. ej. "Bombillo H4".
+    /// Null en productos normales (se usa el nombre del producto).
+    /// </summary>
+    public string? Description { get; set; }
 
     public decimal UnitCost { get; set; }
 

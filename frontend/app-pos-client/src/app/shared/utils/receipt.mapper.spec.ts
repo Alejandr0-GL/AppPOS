@@ -165,4 +165,16 @@ describe('receipt.mapper', () => {
     expect(receiptReceivedLabel({ status: 'COMPLETED', receivedAmount: null }, money)).toBe('No registrado');
     expect(receiptChangeLabel({ status: 'COMPLETED', changeAmount: null }, money)).toBe('-');
   });
+
+  it('imprime la descripción escrita en los ítems "Otros" en lugar del nombre del producto', () => {
+    const order = createOrder();
+    order.details = [{ ...order.details[0], description: 'Bombillo H4' }, ...order.details.slice(1)];
+
+    const receipt = buildReceiptData(order);
+
+    expect(receipt.items[0].name).toBe('Bombillo H4');
+    if (order.details.length > 1) {
+      expect(receipt.items[1].name).toBe(order.details[1].product?.name);
+    }
+  });
 });

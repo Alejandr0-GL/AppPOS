@@ -28,3 +28,5 @@ ehthumbs.db
 Thumbs.db
 AGENT_CONTEXT.md
 .env
+## POS-07: imágenes subidas por los usuarios (no versionar)
+backend/AppPOS.Api/wwwroot/uploads/

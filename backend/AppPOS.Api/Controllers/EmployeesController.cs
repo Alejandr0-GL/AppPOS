@@ -164,7 +164,8 @@ namespace AppPOS.Api.Controllers
                     order.OrderId,
                     detail.OrderDetailId,
                     order.Date,
-                    product.Name,
+                    // POS-07: en ítems "Otros" se muestra la descripción escrita en la venta.
+                    Name = detail.Description ?? product.Name,
                     product.Sku,
                     product.IsService,
                     detail.Quantity,

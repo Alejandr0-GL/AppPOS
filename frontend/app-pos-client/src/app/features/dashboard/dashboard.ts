@@ -20,7 +20,6 @@ import { DashboardService } from './services/dashboard.service';
           <h2 class="text-2xl font-black text-slate-900">Dashboard de métricas e inventario</h2>
           <p class="text-sm text-slate-500">Resumen operativo de <strong class="text-slate-700">{{ activeSectionName() }}</strong>.</p>
         </div>
-        <button (click)="load()" [disabled]="loading()" class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60">{{ loading() ? 'Actualizando...' : 'Actualizar' }}</button>
       </header>
 
       @if (errorMessage()) {
@@ -76,26 +75,6 @@ import { DashboardService } from './services/dashboard.service';
             <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Órdenes de hoy</p>
             <p class="mt-2 text-3xl font-black text-slate-900">{{ data.todayOrdersCount }}</p>
             <p class="mt-1 text-xs text-slate-400">Ventas registradas hoy (sin anuladas).</p>
-          </article>
-        </div>
-
-        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          <article class="rounded-2xl border border-slate-200 border-l-4 border-l-sky-500 bg-white p-5 shadow-sm">
-            <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Valor a precio de compra</p>
-            <p class="mt-2 text-3xl font-black text-slate-900">{{ data.costValue | currency:'COP':'symbol':'1.0-0' }}</p>
-            <p class="mt-1 text-xs text-slate-400">Inventario valorado al precio de compra.</p>
-          </article>
-
-          <article class="rounded-2xl border border-slate-200 border-l-4 border-l-emerald-500 bg-white p-5 shadow-sm">
-            <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Valor a precio de venta</p>
-            <p class="mt-2 text-3xl font-black text-emerald-700">{{ data.saleValue | currency:'COP':'symbol':'1.0-0' }}</p>
-            <p class="mt-1 text-xs text-slate-400">Inventario valorado al precio de venta.</p>
-          </article>
-
-          <article class="rounded-2xl border border-slate-200 border-l-4 border-l-teal-500 bg-white p-5 shadow-sm">
-            <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Margen est. ganancia</p>
-            <p class="mt-2 text-3xl font-black text-teal-700">{{ data.potentialProfit | currency:'COP':'symbol':'1.0-0' }}</p>
-            <p class="mt-1 text-xs text-slate-400">Diferencia entre valor de venta y costo.</p>
           </article>
         </div>
 
@@ -167,7 +146,7 @@ import { DashboardService } from './services/dashboard.service';
           <div class="mb-4 flex flex-wrap items-start justify-between gap-2">
             <div>
               <h3 class="text-sm font-bold text-slate-700">Ganancias a través del tiempo</h3>
-              <p class="text-xs text-slate-400">Ventas, costo, comisiones y ganancia neta real</p>
+              <p class="text-xs text-slate-400">Ganancia neta real (ventas − costo − comisiones) · {{ trendRangeLabel() }}</p>
             </div>
             <span class="rounded-full bg-emerald-100 px-2 py-1 text-xs font-bold text-emerald-700">{{ profitTrendTotal() | currency:'COP':'symbol':'1.0-0' }}</span>
           </div>
@@ -262,7 +241,7 @@ export class DashboardComponent {
         pointHoverRadius: 6,
         borderWidth: 2,
         fill: true,
-        tension: 0.35
+        tension: 0 // POS-07: líneas rectas entre puntos (sin curvas)
       }
     ]
   }));
@@ -303,46 +282,7 @@ export class DashboardComponent {
     return {
       labels: points.map(point => this.formatDayLabel(point.date)),
       datasets: [
-        {
-          label: 'Ventas',
-          data: points.map(point => point.sales),
-          borderColor: '#4f46e5',
-          backgroundColor: 'rgba(79, 70, 229, 0.10)',
-          pointBackgroundColor: '#4f46e5',
-          pointBorderColor: '#ffffff',
-          pointRadius: 3,
-          pointHoverRadius: 5,
-          borderWidth: 2,
-          fill: true,
-          tension: 0.35
-        },
-        {
-          label: 'Costo',
-          data: points.map(point => point.cost),
-          borderColor: '#f59e0b',
-          backgroundColor: 'rgba(245, 158, 11, 0.10)',
-          pointBackgroundColor: '#f59e0b',
-          pointBorderColor: '#ffffff',
-          pointRadius: 3,
-          pointHoverRadius: 5,
-          borderWidth: 2,
-          fill: false,
-          tension: 0.35
-        },
-        {
-          label: 'Comisión',
-          data: points.map(point => point.commission),
-          borderColor: '#8b5cf6',
-          backgroundColor: 'rgba(139, 92, 246, 0.10)',
-          pointBackgroundColor: '#8b5cf6',
-          pointBorderColor: '#ffffff',
-          pointRadius: 2,
-          pointHoverRadius: 5,
-          borderWidth: 2,
-          borderDash: [5, 4],
-          fill: false,
-          tension: 0.35
-        },
+        // POS-07: solo la ganancia neta real (ventas − costo − comisión ya viene calculada por la API).
         {
           label: 'Ganancia neta',
           data: points.map(point => point.profit),
@@ -350,11 +290,11 @@ export class DashboardComponent {
           backgroundColor: 'rgba(16, 185, 129, 0.16)',
           pointBackgroundColor: '#10b981',
           pointBorderColor: '#ffffff',
-          pointRadius: 3,
-          pointHoverRadius: 5,
+          pointRadius: 4,
+          pointHoverRadius: 6,
           borderWidth: 2,
           fill: true,
-          tension: 0.35
+          tension: 0 // POS-07: líneas rectas entre puntos (sin curvas)
         }
       ]
     };
@@ -365,14 +305,11 @@ export class DashboardComponent {
     maintainAspectRatio: false,
     interaction: { mode: 'index', intersect: false },
     plugins: {
-      legend: {
-        display: true,
-        position: 'bottom',
-        labels: { usePointStyle: true, boxWidth: 10 }
-      },
+      // Una sola serie: la leyenda sobra (el título de la tarjeta ya la identifica).
+      legend: { display: false },
       tooltip: {
         callbacks: {
-          label: context => ` ${context.dataset.label ?? ''}: ${this.formatCop(context.parsed.y)}`
+          label: context => ` Ganancia neta: ${this.formatCop(context.parsed.y)}`
         }
       }
     },

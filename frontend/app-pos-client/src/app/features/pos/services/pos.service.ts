@@ -1,7 +1,8 @@
 import { Injectable, inject, signal } from '@angular/core';
+import { API_URL } from '../../../shared/config/api.config';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { Product, Customer, CreateOrderDto, Order, OrderSummary, Inventory, StockMovement, PayOrderRequest, PayOrderResponse } from '../../../shared/models/pos.models';
+import { CartItem, Product, Customer, CreateOrderDto, Order, OrderSummary, Inventory, StockMovement, PayOrderRequest, PayOrderResponse } from '../../../shared/models/pos.models';
 
 export interface Section {
   sectionId: number;
@@ -14,10 +15,10 @@ export interface Section {
 })
 export class PosService {
   private http = inject(HttpClient);
-  private apiUrl = 'https://localhost:7122/api';
+  private apiUrl = API_URL;
 
   selectedSectionId = signal<number | null>(null);
-  cartItems = signal<Array<{ product: Product; quantity: number; sectionId: number; employeeId?: number | null }>>([]);
+  cartItems = signal<CartItem[]>([]);
 
   // Obtener la lista de secciones
   getSections(): Observable<Section[]> {

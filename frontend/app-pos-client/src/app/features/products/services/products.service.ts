@@ -1,4 +1,5 @@
 import { Injectable, inject } from '@angular/core';
+import { API_URL } from '../../../shared/config/api.config';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { ProductCatalogItem } from '../../../shared/models/pos.models';
@@ -33,6 +34,8 @@ export interface CreateProductRequest {
   initialStock: number;
   minStock: number;
   isService: boolean;
+  /** POS-07: ítem abierto ("Otros"). */
+  isOpenItem: boolean;
   employeeCommissionPercentage: number;
   businessProfitPercentage: number;
 }
@@ -44,7 +47,7 @@ export interface UpdateProductRequest extends Omit<CreateProductRequest, 'sectio
 @Injectable({ providedIn: 'root' })
 export class ProductsService {
   private readonly http = inject(HttpClient);
-  private readonly apiUrl = 'https://localhost:7122/api';
+  private readonly apiUrl = API_URL;
 
   getProducts(sectionId?: number, search?: string, status: 'active' | 'inactive' | 'all' = 'active'): Observable<ProductCatalogItem[]> {
     const params = new URLSearchParams();
@@ -80,5 +83,17 @@ export class ProductsService {
 
   updateProduct(productId: number, product: UpdateProductRequest): Observable<{ message: string }> {
     return this.http.put<{ message: string }>(`${this.apiUrl}/Products/${productId}`, product);
+  }
+
+  /** POS-07: sube (o reemplaza) la imagen del producto. */
+  uploadProductImage(productId: number, file: File): Observable<{ message: string; imageUrl: string }> {
+    const body = new FormData();
+    body.append('file', file);
+    return this.http.post<{ message: string; imageUrl: string }>(`${this.apiUrl}/Products/${productId}/image`, body);
+  }
+
+  /** POS-07: quita la imagen del producto. */
+  deleteProductImage(productId: number): Observable<{ message: string; imageUrl: null }> {
+    return this.http.delete<{ message: string; imageUrl: null }>(`${this.apiUrl}/Products/${productId}/image`);
   }
 }

@@ -6,6 +6,7 @@ import { AppEnvironment } from './environment.model';
  */
 export const environment: AppEnvironment = {
   production: false,
+  apiUrl: 'https://localhost:7122/api',
   company: {
     name: 'Negocio de prueba',
     nit: '900.000.000-1',

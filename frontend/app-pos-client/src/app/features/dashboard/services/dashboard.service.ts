@@ -1,4 +1,5 @@
 import { Injectable, inject } from '@angular/core';
+import { API_URL } from '../../../shared/config/api.config';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { DashboardSummary, LowStockItem, ProfitTrendPoint, SalesTrendPoint } from '../../../shared/models/pos.models';
@@ -6,7 +7,7 @@ import { DashboardSummary, LowStockItem, ProfitTrendPoint, SalesTrendPoint } fro
 @Injectable({ providedIn: 'root' })
 export class DashboardService {
   private readonly http = inject(HttpClient);
-  private readonly apiUrl = 'https://localhost:7122/api/Dashboard';
+  private readonly apiUrl = `${API_URL}/Dashboard`;
 
   getSummary(sectionId: number): Observable<DashboardSummary> {
     return this.http.get<DashboardSummary>(`${this.apiUrl}/summary?sectionId=${sectionId}`);

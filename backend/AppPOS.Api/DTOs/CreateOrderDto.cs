@@ -5,9 +5,25 @@
         public int ProductId { get; set; }
         public int SectionId { get; set; } // Necesario para identificar de qué ubicación descontar stock
         public int Quantity { get; set; }
+        /// <summary>Informativo: el servidor NO lo usa (toma Product.SalePrice). Para cambiar el precio usar <see cref="PriceOverride"/>.</summary>
         public decimal UnitPrice { get; set; }
         public decimal TaxAmount { get; set; }
         public int? EmployeeId { get; set; } // Técnico/empleado asignado (opcional)
+
+        /// <summary>
+        /// POS-07: precio unitario distinto al de catálogo, elegido explícitamente por el cajero.
+        /// Null = cobrar el precio de catálogo actual. Debe ser mayor a 0.
+        /// </summary>
+        public decimal? PriceOverride { get; set; }
+
+        /// <summary>POS-07: sólo ítems abiertos ("Otros"): descripción obligatoria (máx. 150).</summary>
+        public string? Description { get; set; }
+
+        /// <summary>
+        /// POS-07: sólo ítems abiertos ("Otros"): costo unitario opcional (default 0). Se congela en
+        /// unit_cost y es la base de comisión/ganancia. El precio no puede ser menor a este costo.
+        /// </summary>
+        public decimal? UnitCost { get; set; }
     }
 
     public class CreateOrderDto
@@ -24,6 +40,12 @@
         // POS = Venta normal/remisión | ELECTRONIC = Factura Electrónica
         public string InvoiceType { get; set; } = "POS";
         public List<CreateOrderDetailDto> Details { get; set; } = new();
+
+        /// <summary>
+        /// POS-07: motivo opcional del ajuste de precio (uno por venta, máx. 200). Sólo se guarda
+        /// si alguna línea trae un PriceOverride distinto al precio de lista.
+        /// </summary>
+        public string? PriceChangeReason { get; set; }
     }
 
     public class CancelOrderDto

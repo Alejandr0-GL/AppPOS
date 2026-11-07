@@ -1,4 +1,5 @@
 import { Injectable, inject } from '@angular/core';
+import { API_URL } from '../../../shared/config/api.config';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { Employee, EmployeeCommissionReport } from '../../../shared/models/pos.models';
@@ -6,7 +7,7 @@ import { Employee, EmployeeCommissionReport } from '../../../shared/models/pos.m
 @Injectable({ providedIn: 'root' })
 export class EmployeesService {
   private readonly http = inject(HttpClient);
-  private readonly apiUrl = 'https://localhost:7122/api/Employees';
+  private readonly apiUrl = `${API_URL}/Employees`;
 
   getEmployees(includeInactive = false): Observable<Employee[]> {
     return this.http.get<Employee[]>(`${this.apiUrl}?includeInactive=${includeInactive}`);

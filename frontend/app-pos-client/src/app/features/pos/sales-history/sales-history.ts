@@ -20,9 +20,6 @@ import { PosService } from '../services/pos.service';
           <h2 class="text-2xl font-black text-slate-900">Historial de ventas</h2>
           <p class="text-sm text-slate-500">Consulta comprobantes y revisa cada producto vendido.</p>
         </div>
-        <button (click)="loadOrders()" class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-700">
-          Actualizar
-        </button>
       </header>
 
       <div class="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-5">
@@ -115,13 +112,17 @@ import { PosService } from '../services/pos.service';
             <div class="grid gap-3 border-b border-slate-200 bg-slate-50 p-5 text-sm md:grid-cols-4"><div><span class="block text-xs uppercase text-slate-500">Cliente</span><strong class="text-slate-800">{{ order.customer?.name || 'Consumidor final' }}</strong><span class="block text-slate-500">Doc: {{ order.customer?.documentNumber || 'Sin documento' }}</span></div><div><span class="block text-xs uppercase text-slate-500">Cajero</span><strong class="text-slate-800">{{ order.user?.username || 'Sin usuario' }}</strong><span class="block text-slate-500">ID: {{ order.user?.userId || '-' }}</span></div><div><span class="block text-xs uppercase text-slate-500">Método de pago</span><strong class="text-slate-800">{{ paymentLabel(order.paymentMethod) }}</strong></div><div><span class="block text-xs uppercase text-slate-500">Estado</span><span class="rounded-full px-2 py-1 text-xs font-bold" [ngClass]="statusBadgeClass(order.status)">{{ formatStatus(order.status) }}</span></div></div>
             <div class="flex-1 overflow-y-auto p-5"><h4 class="mb-3 font-bold text-slate-800">Productos</h4><div class="overflow-x-auto"><table class="w-full min-w-[680px] text-left text-sm"><thead class="bg-slate-50 text-xs uppercase text-slate-500"><tr><th class="px-3 py-2">Producto / SKU</th><th class="px-3 py-2">Cantidad</th><th class="px-3 py-2">Precio unitario</th><th class="px-3 py-2">IVA / Tax</th><th class="px-3 py-2 text-right">Subtotal</th></tr></thead><tbody class="divide-y divide-slate-100">
               @for (detail of order.details; track detail.orderDetailId) {
-                <tr><td class="px-3 py-3"><strong class="block text-slate-800">{{ detail.product?.name || 'Producto #' + detail.productId }}</strong><span class="text-xs text-slate-500">SKU: {{ detail.product?.sku || 'Sin SKU' }}</span></td><td class="px-3 py-3 text-slate-700">{{ detail.quantity }}</td><td class="px-3 py-3 text-slate-700">{{ detail.unitPrice | currency:'COP':'symbol':'1.0-0' }}</td><td class="px-3 py-3 text-slate-700">{{ detail.taxAmount | currency:'COP':'symbol':'1.0-0' }}</td><td class="px-3 py-3 text-right font-bold text-slate-800">{{ detail.subtotal | currency:'COP':'symbol':'1.0-0' }}</td></tr>
+                <tr><td class="px-3 py-3"><strong class="block text-slate-800">{{ detail.description || detail.product?.name || 'Producto #' + detail.productId }}@if (detail.description) { <span class="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-slate-500">Otros</span> }</strong><span class="text-xs text-slate-500">SKU: {{ detail.product?.sku || 'Sin SKU' }}</span></td><td class="px-3 py-3 text-slate-700">{{ detail.quantity }}</td><td class="px-3 py-3 text-slate-700">{{ detail.unitPrice | currency:'COP':'symbol':'1.0-0' }}@if (detail.listPrice != null && detail.listPrice !== detail.unitPrice) {<span class="block text-xs text-slate-400">Original: <span class="line-through">{{ detail.listPrice | currency:'COP':'symbol':'1.0-0' }}</span> <span class="font-bold" [class.text-emerald-600]="detail.unitPrice > detail.listPrice" [class.text-amber-600]="detail.unitPrice < detail.listPrice">({{ detail.unitPrice > detail.listPrice ? '+' : '' }}{{ detail.unitPrice - detail.listPrice | currency:'COP':'symbol':'1.0-0' }})</span></span>}</td><td class="px-3 py-3 text-slate-700">{{ detail.taxAmount | currency:'COP':'symbol':'1.0-0' }}</td><td class="px-3 py-3 text-right font-bold text-slate-800">{{ detail.subtotal | currency:'COP':'symbol':'1.0-0' }}</td></tr>
               }
               </tbody></table></div>
+              <!-- POS-07: motivo único del ajuste de precio de la venta -->
+              @if (order.priceChangeReason) {
+                <p class="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"><span class="font-bold">Motivo del ajuste de precio:</span> {{ order.priceChangeReason }}</p>
+              }
             </div>
             <div class="border-t border-slate-200 p-5"><div class="ml-auto max-w-sm space-y-2 text-sm"><div class="flex justify-between text-slate-500"><span>Subtotal base</span><span>{{ baseAmount(order) | currency:'COP':'symbol':'1.0-0' }}</span></div><div class="flex justify-between text-slate-500"><span>Impuestos (IVA)</span><span>{{ taxAmount(order) | currency:'COP':'symbol':'1.0-0' }}</span></div>@if (order.receivedAmount != null) {<div class="flex justify-between text-slate-500"><span>Efectivo recibido</span><span>{{ order.receivedAmount | currency:'COP':'symbol':'1.0-0' }}</span></div><div class="flex justify-between text-slate-500"><span>Cambio</span><span>{{ (order.changeAmount ?? 0) | currency:'COP':'symbol':'1.0-0' }}</span></div>}<div class="flex justify-between border-t border-slate-200 pt-2 text-xl font-black text-slate-900"><span>Total pagar</span><span class="text-emerald-600">{{ order.totalAmount | currency:'COP':'symbol':'1.0-0' }}</span></div></div>
               <div class="mt-4 flex flex-wrap items-center gap-2">
-                <button (click)="openReceipt(order)" class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-700">
+                <button (click)="openReceipt(order)" class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-indigo-600">
                   Ver recibo
                 </button>
                 @if (isPending(order.status)) {
@@ -162,8 +163,9 @@ import { PosService } from '../services/pos.service';
           <div class="mt-4">
             <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Método de pago final</p>
             <div class="mt-1 flex gap-2">
-              <button type="button" (click)="paymentMethodChoice = 'CASH'" [class.bg-slate-900]="paymentMethodChoice === 'CASH'" [class.text-white]="paymentMethodChoice === 'CASH'" class="flex-1 rounded-lg border border-slate-300 bg-white py-2 text-sm font-bold text-slate-600">Efectivo</button>
-              <button type="button" (click)="paymentMethodChoice = 'TRANSFER'" [class.bg-slate-900]="paymentMethodChoice === 'TRANSFER'" [class.text-white]="paymentMethodChoice === 'TRANSFER'" class="flex-1 rounded-lg border border-slate-300 bg-white py-2 text-sm font-bold text-slate-600">Transferencia</button>
+              <!-- POS-07: mismo estilo de selección que el POS (antes el activo quedaba blanco sobre blanco) -->
+              <button type="button" (click)="paymentMethodChoice = 'CASH'" [attr.aria-pressed]="paymentMethodChoice === 'CASH'" [class]="choiceButtonClass(paymentMethodChoice === 'CASH')">Efectivo</button>
+              <button type="button" (click)="paymentMethodChoice = 'TRANSFER'" [attr.aria-pressed]="paymentMethodChoice === 'TRANSFER'" [class]="choiceButtonClass(paymentMethodChoice === 'TRANSFER')">Transferencia</button>
             </div>
           </div>
 
@@ -312,6 +314,14 @@ export class SalesHistoryComponent {
   }
 
   // ---- POS-06: cobro de una venta a crédito ----
+
+  /** POS-07: botón de selección (activo en azul), un solo juego de colores por estado. */
+  choiceButtonClass(active: boolean): string {
+    const base = 'flex-1 rounded-lg border py-2 text-sm font-bold transition-colors';
+    return active
+      ? `${base} border-indigo-600 bg-indigo-600 text-white shadow-sm`
+      : `${base} border-slate-300 bg-white text-slate-600 hover:border-indigo-500 hover:bg-indigo-500 hover:text-white`;
+  }
 
   get paymentChange(): number {
     return (this.paymentReceived ?? 0) - (this.paymentOrder()?.totalAmount ?? 0);

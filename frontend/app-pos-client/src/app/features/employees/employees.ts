@@ -65,7 +65,7 @@ interface EmployeeForm {
                     <td class="px-4 py-3"><span class="rounded-full px-2 py-1 text-xs font-bold" [class.bg-emerald-100]="employee.isActive" [class.text-emerald-700]="employee.isActive" [class.bg-slate-200]="!employee.isActive" [class.text-slate-600]="!employee.isActive">{{ employee.isActive ? 'Activo' : 'Inactivo' }}</span></td>
                     <td class="px-4 py-3 text-right">
                       <div class="flex justify-end gap-2">
-                        <button (click)="openEdit(employee)" class="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-bold text-white">Editar</button>
+                        <button (click)="openEdit(employee)" class="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-indigo-600">Editar</button>
                         @if (employee.isActive) {
                           <button (click)="deactivate(employee)" class="rounded-md bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700">Desactivar</button>
                         }
@@ -193,7 +193,7 @@ interface EmployeeForm {
 
         <div class="flex justify-end gap-2 border-t border-slate-200 pt-4">
           <button (click)="closeModal()" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-100">Cancelar</button>
-          <button (click)="save()" [disabled]="saving()" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-bold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60">{{ saving() ? 'Guardando...' : 'Guardar empleado' }}</button>
+          <button (click)="save()" [disabled]="saving()" class="rounded-lg bg-emerald-600 hover:bg-emerald-700 px-4 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60">{{ saving() ? 'Guardando...' : 'Guardar empleado' }}</button>
         </div>
       </section>
     }
