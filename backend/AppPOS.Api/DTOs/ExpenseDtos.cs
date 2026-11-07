@@ -3,10 +3,9 @@ namespace AppPOS.Api.DTOs
     // EXP-01: gastos del negocio y personales / familiares.
     // EXP-02: edición, anulación y unidad de negocio.
 
-    /// <summary>Cuerpo de POST (crear) y PUT (editar) de un gasto. En la edición se ignora <see cref="UserId"/>.</summary>
+    /// <summary>Cuerpo de POST (crear) y PUT (editar) de un gasto. SEC-01: el usuario sale del token.</summary>
     public class CreateExpenseDto
     {
-        public int UserId { get; set; }
         public decimal Amount { get; set; }
         public string Category { get; set; } = string.Empty;
         /// <summary>BUSINESS | PERSONAL (acepta alias NEGOCIO / FAMILIAR).</summary>
@@ -44,6 +43,10 @@ namespace AppPOS.Api.DTOs
         public bool IsVoided { get; set; }
         public DateTime? VoidedAt { get; set; }
         public string? VoidReason { get; set; }
+        /// <summary>SEC-01: usuario que hizo la última edición.</summary>
+        public string? UpdatedByUsername { get; set; }
+        /// <summary>SEC-01: usuario que anuló.</summary>
+        public string? VoidedByUsername { get; set; }
     }
 
     public class ExpenseCategoryTotalDto

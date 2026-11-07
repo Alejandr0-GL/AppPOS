@@ -1,5 +1,7 @@
 ﻿using AppPOS.Api.DTOs;
 using AppPOS.Api.Models;
+using AppPOS.Api.Services.Auth;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System;

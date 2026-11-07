@@ -235,6 +235,10 @@ namespace AppPOS.Api.Migrations
                         .HasColumnType("datetime2")
                         .HasColumnName("updated_at");
 
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int")
+                        .HasColumnName("updated_by_user_id");
+
                     b.Property<int>("UserId")
                         .HasColumnType("int")
                         .HasColumnName("user_id");
@@ -248,9 +252,17 @@ namespace AppPOS.Api.Migrations
                         .HasColumnType("datetime2")
                         .HasColumnName("voided_at");
 
+                    b.Property<int?>("VoidedByUserId")
+                        .HasColumnType("int")
+                        .HasColumnName("voided_by_user_id");
+
                     b.HasKey("ExpenseId");
 
+                    b.HasIndex("UpdatedByUserId");
+
                     b.HasIndex("UserId");
+
+                    b.HasIndex("VoidedByUserId");
 
                     b.HasIndex(new[] { "Date" }, "IX_Expenses_Date");
 
@@ -625,6 +637,10 @@ namespace AppPOS.Api.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("PurchaseId"));
 
+                    b.Property<int?>("CancelledByUserId")
+                        .HasColumnType("int")
+                        .HasColumnName("cancelled_by_user_id");
+
                     b.Property<DateTime>("Date")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
@@ -661,6 +677,8 @@ namespace AppPOS.Api.Migrations
 
                     b.HasKey("PurchaseId")
                         .HasName("PK__Purchase__87071CB960C4415F");
+
+                    b.HasIndex("CancelledByUserId");
 
                     b.HasIndex("SupplierId");
 
@@ -888,6 +906,17 @@ namespace AppPOS.Api.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("(sysdatetime())");
 
+                    b.Property<int>("FailedLoginAttempts")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0)
+                        .HasColumnName("failed_login_attempts");
+
+                    b.Property<string>("FullName")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)")
+                        .HasColumnName("full_name");
+
                     b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
@@ -897,6 +926,10 @@ namespace AppPOS.Api.Migrations
                     b.Property<DateTime?>("LastAccess")
                         .HasColumnType("datetime2")
                         .HasColumnName("last_access");
+
+                    b.Property<DateTime?>("LockoutUntil")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("lockout_until");
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
@@ -910,6 +943,16 @@ namespace AppPOS.Api.Migrations
                         .HasColumnType("nvarchar(50)")
                         .HasColumnName("role");
 
+                    b.Property<int?>("SectionId")
+                        .HasColumnType("int")
+                        .HasColumnName("section_id");
+
+                    b.Property<int>("TokenVersion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0)
+                        .HasColumnName("token_version");
+
                     b.Property<string>("Username")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -918,6 +961,11 @@ namespace AppPOS.Api.Migrations
 
                     b.HasKey("UserId")
                         .HasName("PK__Users__B9BE370F4DEAD774");
+
+                    b.HasIndex("SectionId");
+
+                    b.HasIndex(new[] { "Username" }, "UX_Users_Username")
+                        .IsUnique();
 
                     b.ToTable("Users");
                 });
@@ -939,11 +987,21 @@ namespace AppPOS.Api.Migrations
                         .IsRequired()
                         .HasConstraintName("FK_Expenses_Sections");
 
+                    b.HasOne("AppPOS.Api.Models.User", null)
+                        .WithMany()
+                        .HasForeignKey("UpdatedByUserId")
+                        .HasConstraintName("FK_Expenses_UpdatedByUser");
+
                     b.HasOne("AppPOS.Api.Models.User", "User")
                         .WithMany("Expenses")
                         .HasForeignKey("UserId")
                         .IsRequired()
                         .HasConstraintName("FK_Expenses_Users");
+
+                    b.HasOne("AppPOS.Api.Models.User", null)
+                        .WithMany()
+                        .HasForeignKey("VoidedByUserId")
+                        .HasConstraintName("FK_Expenses_VoidedByUser");
 
                     b.Navigation("Section");
 
@@ -1037,6 +1095,11 @@ namespace AppPOS.Api.Migrations
 
             modelBuilder.Entity("AppPOS.Api.Models.Purchase", b =>
                 {
+                    b.HasOne("AppPOS.Api.Models.User", null)
+                        .WithMany()
+                        .HasForeignKey("CancelledByUserId")
+                        .HasConstraintName("FK_Purchases_CancelledByUser");
+
                     b.HasOne("AppPOS.Api.Models.Supplier", "Supplier")
                         .WithMany("Purchases")
                         .HasForeignKey("SupplierId")
@@ -1109,6 +1172,16 @@ namespace AppPOS.Api.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("AppPOS.Api.Models.User", b =>
+                {
+                    b.HasOne("AppPOS.Api.Models.Section", "Section")
+                        .WithMany("Users")
+                        .HasForeignKey("SectionId")
+                        .HasConstraintName("FK_Users_Sections");
+
+                    b.Navigation("Section");
+                });
+
             modelBuilder.Entity("AppPOS.Api.Models.Category", b =>
                 {
                     b.Navigation("Products");
@@ -1152,6 +1225,8 @@ namespace AppPOS.Api.Migrations
                     b.Navigation("PurchaseDetails");
 
                     b.Navigation("StockMovements");
+
+                    b.Navigation("Users");
                 });
 
             modelBuilder.Entity("AppPOS.Api.Models.Supplier", b =>

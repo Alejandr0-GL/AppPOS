@@ -1,4 +1,6 @@
 ﻿using AppPOS.Api.Models;
+using AppPOS.Api.Services.Auth;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -20,6 +22,11 @@ namespace AppPOS.Api.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Section>>> GetSections()
         {
+            // SEC-01: el cajero sólo ve (y trabaja en) su unidad asignada.
+            var assignedSectionId = User.GetAssignedSectionId();
+            if (!User.IsAdmin())
+                return await _context.Sections.Where(section => section.SectionId == assignedSectionId).ToListAsync();
+
             return await _context.Sections.ToListAsync();
         }
 
@@ -39,6 +46,7 @@ namespace AppPOS.Api.Controllers
 
         // POST: api/Sections
         [HttpPost]
+        [Authorize(Roles = Roles.Admin)] // SEC-01
         public async Task<ActionResult<Section>> PostSection(Section section)
         {
             _context.Sections.Add(section);
@@ -49,6 +57,7 @@ namespace AppPOS.Api.Controllers
 
         // PUT: api/Sections/5
         [HttpPut("{id}")]
+        [Authorize(Roles = Roles.Admin)] // SEC-01
         public async Task<IActionResult> PutSection(int id, Section section)
         {
             if (id != section.SectionId)
@@ -76,6 +85,7 @@ namespace AppPOS.Api.Controllers
 
         // DELETE: api/Sections/5
         [HttpDelete("{id}")]
+        [Authorize(Roles = Roles.Admin)] // SEC-01
         public async Task<IActionResult> DeleteSection(int id)
         {
             var section = await _context.Sections.FindAsync(id);

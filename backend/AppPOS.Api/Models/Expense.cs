@@ -9,7 +9,7 @@ public partial class Expense
 {
     public int ExpenseId { get; set; }
 
-    /// <summary>Usuario que registró el gasto (sin autenticación aún: el frontend envía 1).</summary>
+    /// <summary>Usuario que registró el gasto (SEC-01: sale del token, no del body).</summary>
     public int UserId { get; set; }
 
     public decimal Amount { get; set; }
@@ -47,6 +47,12 @@ public partial class Expense
 
     /// <summary>Motivo opcional de la anulación.</summary>
     public string? VoidReason { get; set; }
+
+    /// <summary>SEC-01: último usuario que editó el gasto.</summary>
+    public int? UpdatedByUserId { get; set; }
+
+    /// <summary>SEC-01: usuario que anuló el gasto.</summary>
+    public int? VoidedByUserId { get; set; }
 
     public virtual User User { get; set; } = null!;
 

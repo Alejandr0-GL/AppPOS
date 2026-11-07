@@ -1,6 +1,8 @@
 ﻿using AppPOS.Api.DTOs;
 using AppPOS.Api.Models;
 using AppPOS.Api.Services.Storage;
+using AppPOS.Api.Services.Auth;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -22,6 +24,10 @@ namespace AppPOS.Api.Controllers
         [HttpGet]
         public async Task<IActionResult> GetProducts([FromQuery] int? sectionId, [FromQuery] string? search, [FromQuery] bool includeInactive = false, [FromQuery] string? status = null)
         {
+            // SEC-01: el cajero sólo ve el catálogo de su unidad.
+            if (!this.TryResolveSection(sectionId, out var effectiveSectionId, out var forbidden)) return forbidden!;
+            sectionId = effectiveSectionId;
+
             var query = _context.Products.AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(status))
@@ -79,6 +85,7 @@ namespace AppPOS.Api.Controllers
 
         // POST: api/Products
         [HttpPost]
+        [Authorize(Roles = Roles.Admin)] // SEC-01
         public async Task<IActionResult> PostProduct([FromBody] CreateProductDto dto)
         {
             // POS-07: un ítem abierto ("Otros") nunca maneja inventario.
@@ -148,6 +155,7 @@ namespace AppPOS.Api.Controllers
 
         // PUT: api/Products/5
         [HttpPut("{id}")]
+        [Authorize(Roles = Roles.Admin)] // SEC-01
         public async Task<IActionResult> PutProduct(int id, [FromBody] UpdateProductDto dto)
         {
             // POS-07: un ítem abierto ("Otros") nunca maneja inventario.
@@ -212,6 +220,7 @@ namespace AppPOS.Api.Controllers
 
         // DELETE: api/Products/5
         [HttpDelete("{id}")]
+        [Authorize(Roles = Roles.Admin)] // SEC-01
         public async Task<IActionResult> DeleteProduct(int id)
         {
             var product = await _context.Products.FindAsync(id);
@@ -232,6 +241,7 @@ namespace AppPOS.Api.Controllers
         // POST: api/Products/5/image  (multipart/form-data, campo "file")
         // Dónde se guarda el archivo lo decide IProductImageStorage (configuración Storage:ProductImages).
         [HttpPost("{id:int}/image")]
+        [Authorize(Roles = Roles.Admin)] // SEC-01
         [RequestSizeLimit(MaxImageBytes + 64 * 1024)]
         public async Task<IActionResult> UploadProductImage(int id, IFormFile? file)
         {
@@ -285,6 +295,7 @@ namespace AppPOS.Api.Controllers
 
         // DELETE: api/Products/5/image
         [HttpDelete("{id:int}/image")]
+        [Authorize(Roles = Roles.Admin)] // SEC-01
         public async Task<IActionResult> DeleteProductImage(int id)
         {
             var product = await _context.Products.FindAsync(id);

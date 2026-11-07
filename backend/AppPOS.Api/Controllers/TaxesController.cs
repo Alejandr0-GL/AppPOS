@@ -1,4 +1,6 @@
 ﻿using AppPOS.Api.Models;
+using AppPOS.Api.Services.Auth;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -39,6 +41,7 @@ namespace AppPOS.Api.Controllers
 
         // POST: api/Taxes
         [HttpPost]
+        [Authorize(Roles = Roles.Admin)] // SEC-01
         public async Task<ActionResult<Tax>> PostTax(Tax tax)
         {
 
@@ -61,6 +64,7 @@ namespace AppPOS.Api.Controllers
 
         // PUT: api/Taxes/5
         [HttpPut("{id}")]
+        [Authorize(Roles = Roles.Admin)] // SEC-01
         public async Task<IActionResult> PutTaxes(int id, Tax tax)
         {
             if (id != tax.TaxId)
@@ -116,6 +120,7 @@ namespace AppPOS.Api.Controllers
 
         // DELETE: api/Taxes/5
         [HttpDelete("{id}")]
+        [Authorize(Roles = Roles.Admin)] // SEC-01
         public async Task<IActionResult> DeleteTax(int id)
         {
             var tax = await _context.Taxes.FindAsync(id);

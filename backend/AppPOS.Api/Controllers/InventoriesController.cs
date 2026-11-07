@@ -1,6 +1,8 @@
 ﻿using AppPOS.Api.DTOs;
 using AppPOS.Api.Models;
 using AppPOS.Api.Services;
+using AppPOS.Api.Services.Auth;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -28,6 +30,9 @@ namespace AppPOS.Api.Controllers
             {
                 return BadRequest(new { message = "sectionId es obligatorio para consultar inventario." });
             }
+
+            // SEC-01: el cajero sólo consulta el stock de su unidad.
+            if (!this.TryResolveSection(sectionId, out _, out var forbidden)) return forbidden!;
 
             var query = _context.Inventories
                 .Where(i => i.SectionId == sectionId && !i.Product.IsService)
@@ -63,14 +68,16 @@ namespace AppPOS.Api.Controllers
         }
 
         // PUT: api/Inventories/5
+        // SEC-01: sólo el administrador ajusta stock (el cajero sólo consulta).
         [HttpPut("{id:int}")]
+        [Authorize(Roles = Roles.Admin)]
         public async Task<IActionResult> AdjustStock([FromBody] UpdateInventoryDto dto, int id)
         {
             await using var transaction = await _context.Database.BeginTransactionAsync();
 
             try
             {
-                await _stockService.UpdateInventoryAsync(dto.UserId, id, dto.SectionId, dto.CurrentStock, dto.MinStock, dto.Reason ?? string.Empty);
+                await _stockService.UpdateInventoryAsync(User.GetUserId(), id, dto.SectionId, dto.CurrentStock, dto.MinStock, dto.Reason ?? string.Empty);
                 await transaction.CommitAsync();
                 return Ok(new { message = "Stock ajustado correctamente." });
             }
