@@ -105,7 +105,8 @@ export function buildReceiptData(order: Order): ReceiptData {
     customerPhone: order.customer?.phone ?? null,
     items: order.details.map(detail => ({
       quantity: detail.quantity,
-      name: detail.product?.name || `Producto #${detail.productId}`,
+      // POS-07: los ítems "Otros" se imprimen con la descripción escrita en la venta.
+      name: detail.description?.trim() || detail.product?.name || `Producto #${detail.productId}`,
       sku: detail.product?.sku ?? null,
       unitPrice: Number(detail.unitPrice ?? 0),
       subtotal: Number(detail.subtotal ?? 0),

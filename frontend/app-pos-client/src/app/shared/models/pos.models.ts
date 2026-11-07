@@ -12,6 +12,10 @@ export interface Product {
   isService: boolean;
   employeeCommissionPercentage: number;
   businessProfitPercentage: number;
+  /** POS-07: ruta relativa de la imagen (p. ej. /uploads/products/12-abc.webp); usar productImageSrc(). */
+  imageUrl?: string | null;
+  /** POS-07: ítem abierto ("Otros"): descripción, precio y costo se escriben en cada venta. */
+  isOpenItem?: boolean;
 }
 
 export interface Customer {
@@ -26,12 +30,34 @@ export interface Customer {
   email?: string;
 }
 
+/** Línea del carrito del POS. */
+export interface CartItem {
+  /** Identificador único de la línea (un mismo ítem "Otros" puede repetirse con distinta descripción). */
+  lineId: string;
+  product: Product;
+  /** POS-07: sólo ítems "Otros": qué se vende (p. ej. "Bombillo H4"). */
+  description?: string;
+  /** POS-07: sólo ítems "Otros": costo unitario (0 si no se conoce). */
+  unitCost?: number;
+  quantity: number;
+  sectionId: number;
+  employeeId?: number | null;
+  /** POS-07: precio unitario a cobrar (inicia en product.salePrice; el cajero puede cambiarlo). Null = campo vacío/inválido. */
+  unitPrice: number | null;
+}
+
 export interface CreateOrderDetailDto {
   productId: number;
   sectionId: number;
   quantity: number;
+  /** Informativo: el servidor lo ignora y usa el precio de catálogo (ver priceOverride). */
   unitPrice: number;
   employeeId?: number | null;
+  /** POS-07: precio distinto al de catálogo, elegido por el cajero (null = precio de catálogo). */
+  priceOverride?: number | null;
+  /** POS-07: sólo ítems "Otros". */
+  description?: string | null;
+  unitCost?: number | null;
 }
 
 export interface CreateOrderDto {
@@ -42,6 +68,8 @@ export interface CreateOrderDto {
   receivedAmount?: number | null;
   invoiceType: 'POS' | 'ELECTRONIC';
   details: CreateOrderDetailDto[];
+  /** POS-07: motivo opcional del ajuste de precio (uno por venta). */
+  priceChangeReason?: string | null;
 }
 
 export interface OrderSummary {
@@ -56,6 +84,8 @@ export interface OrderSummary {
   changeAmount?: number | null;
   /** POS-06: fecha de cobro de una venta a crédito (solo PAID). */
   paidAt?: string | null;
+  /** POS-07: motivo del ajuste de precio de la venta (si alguna línea se cobró distinto al de lista). */
+  priceChangeReason?: string | null;
   invoiceType: 'POS' | 'ELECTRONIC' | string;
   status: string;
   customer?: Pick<Customer, 'customerId' | 'name' | 'documentNumber'> | null;
@@ -67,7 +97,12 @@ export interface OrderDetail {
   orderDetailId: number;
   productId: number;
   quantity: number;
+  /** Precio realmente cobrado por unidad. */
   unitPrice: number;
+  /** POS-07: precio de catálogo congelado al vender; si ≠ unitPrice, el precio se cambió en el POS. */
+  listPrice?: number;
+  /** POS-07: descripción de ítems "Otros" (usar en lugar del nombre del producto). */
+  description?: string | null;
   unitCost: number;
   employeeId?: number | null;
   employee?: { employeeId: number; name: string } | null;

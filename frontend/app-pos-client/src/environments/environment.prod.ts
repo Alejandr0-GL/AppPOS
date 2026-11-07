@@ -9,6 +9,9 @@ import { AppEnvironment } from './environment.model';
  */
 export const environment: AppEnvironment = {
   production: true,
+  // POS-07: al desplegar, poner la URL pública de la API (https://api.midominio.com/api)
+  // o dejar '/api' si el frontend y la API se publican bajo el mismo dominio.
+  apiUrl: '/api',
   company: {
     name: '',
     nit: '',

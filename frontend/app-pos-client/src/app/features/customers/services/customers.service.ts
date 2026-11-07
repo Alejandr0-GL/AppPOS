@@ -1,4 +1,5 @@
 import { Injectable, inject } from '@angular/core';
+import { API_URL } from '../../../shared/config/api.config';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { Customer } from '../../../shared/models/pos.models';
@@ -6,7 +7,7 @@ import { Customer } from '../../../shared/models/pos.models';
 @Injectable({ providedIn: 'root' })
 export class CustomersService {
   private readonly http = inject(HttpClient);
-  private readonly apiUrl = 'https://localhost:7122/api/Customers';
+  private readonly apiUrl = `${API_URL}/Customers`;
 
   getCustomers(search = ''): Observable<Customer[]> {
     const query = search.trim() ? `?search=${encodeURIComponent(search.trim())}` : '';

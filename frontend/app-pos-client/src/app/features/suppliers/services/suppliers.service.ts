@@ -1,4 +1,5 @@
 import { Injectable, inject } from '@angular/core';
+import { API_URL } from '../../../shared/config/api.config';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { Supplier } from '../../../shared/models/pos.models';
@@ -6,7 +7,7 @@ import { Supplier } from '../../../shared/models/pos.models';
 @Injectable({ providedIn: 'root' })
 export class SuppliersService {
   private readonly http = inject(HttpClient);
-  private readonly apiUrl = 'https://localhost:7122/api/Suppliers';
+  private readonly apiUrl = `${API_URL}/Suppliers`;
 
   getSuppliers(): Observable<Supplier[]> {
     return this.http.get<Supplier[]>(this.apiUrl);

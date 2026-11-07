@@ -268,6 +268,7 @@ namespace AppPOS.Api.Controllers
                     detail.CommissionAmount,
                     detail.LocalProfitAmount,
                     product.IsService,
+                    product.IsOpenItem,
                     product.PurchasePrice
                 }).ToListAsync();
 
@@ -285,7 +286,10 @@ namespace AppPOS.Api.Controllers
                         foreach (var row in group)
                         {
                             // Servicios: costo de insumo ACTUAL del producto. Productos: costo congelado (o actual si no existe).
-                            var replacementCost = row.IsService
+                            // POS-07: ítems "Otros": el costo es el escrito en la venta (congelado en unit_cost).
+                            var replacementCost = row.IsOpenItem
+                                ? row.UnitCost
+                                : row.IsService
                                 ? row.PurchasePrice
                                 : (row.UnitCost > 0m ? row.UnitCost : row.PurchasePrice);
 

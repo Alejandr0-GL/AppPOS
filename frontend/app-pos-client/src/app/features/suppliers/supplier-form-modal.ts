@@ -47,7 +47,7 @@ interface SupplierForm {
 
       <div class="flex justify-end gap-2 border-t border-slate-200 pt-4">
         <button (click)="close()" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-100">Cancelar</button>
-        <button (click)="save()" [disabled]="saving()" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-bold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60">{{ saving() ? 'Guardando...' : 'Guardar proveedor' }}</button>
+        <button (click)="save()" [disabled]="saving()" class="rounded-lg bg-emerald-600 hover:bg-emerald-700 px-4 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60">{{ saving() ? 'Guardando...' : 'Guardar proveedor' }}</button>
       </div>
     </section>
   `

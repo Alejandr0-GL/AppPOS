@@ -260,6 +260,11 @@ namespace AppPOS.Api.Migrations
                         .HasColumnType("nvarchar(50)")
                         .HasColumnName("payment_method");
 
+                    b.Property<string>("PriceChangeReason")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)")
+                        .HasColumnName("price_change_reason");
+
                     b.Property<decimal?>("ReceivedAmount")
                         .HasColumnType("decimal(18, 2)")
                         .HasColumnName("received_amount");
@@ -323,9 +328,18 @@ namespace AppPOS.Api.Migrations
                         .HasDefaultValue(0m)
                         .HasColumnName("commission_amount");
 
+                    b.Property<string>("Description")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)")
+                        .HasColumnName("description");
+
                     b.Property<int?>("EmployeeId")
                         .HasColumnType("int")
                         .HasColumnName("employee_id");
+
+                    b.Property<decimal>("ListPrice")
+                        .HasColumnType("decimal(18, 2)")
+                        .HasColumnName("list_price");
 
                     b.Property<decimal>("LocalProfitAmount")
                         .ValueGeneratedOnAdd()
@@ -422,6 +436,12 @@ namespace AppPOS.Api.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(true)
                         .HasColumnName("is_active");
+
+                    b.Property<bool>("IsOpenItem")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_open_item");
 
                     b.Property<bool>("IsService")
                         .ValueGeneratedOnAdd()

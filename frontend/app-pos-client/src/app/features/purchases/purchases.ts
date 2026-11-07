@@ -44,7 +44,7 @@ interface PurchaseLine {
       }
 
       @if (activeTab() === 'list') {
-        <div class="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-3">
+        <div class="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-2">
           <label class="text-xs font-bold uppercase tracking-wider text-slate-500">Desde
             <input [(ngModel)]="startDate" (ngModelChange)="loadPurchases()" type="date" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal text-slate-800" />
           </label>
@@ -81,7 +81,7 @@ interface PurchaseLine {
                     <td class="px-4 py-3 text-right font-black text-slate-800">{{ purchase.totalAmount | currency:'COP':'symbol':'1.0-0' }}</td>
                     <td class="px-4 py-3 text-right">
                       <div class="flex justify-end gap-2">
-                        <button (click)="openDetail(purchase)" class="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-bold text-white">Ver detalle</button>
+                        <button (click)="openDetail(purchase)" class="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-indigo-600">Ver detalle</button>
                         @if (purchase.status === 'COMPLETED') {
                           <button (click)="cancelPurchase(purchase)" [disabled]="cancellingPurchaseId() === purchase.purchaseId" class="rounded-md bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60">{{ cancellingPurchaseId() === purchase.purchaseId ? 'Anulando...' : 'Anular' }}</button>
                         }
@@ -186,7 +186,7 @@ interface PurchaseLine {
             <div class="flex justify-between text-sm text-slate-600"><span>Líneas</span><span>{{ lines().length }}</span></div>
             <div class="flex justify-between text-sm text-slate-600"><span>Unidades</span><span>{{ totalUnits() }}</span></div>
             <div class="flex justify-between border-t border-slate-200 pt-3 text-lg font-black text-slate-900"><span>Total</span><span class="text-emerald-600">{{ linesTotal() | currency:'COP':'symbol':'1.0-0' }}</span></div>
-            <button (click)="savePurchase()" [disabled]="saving()" class="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-bold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60">{{ saving() ? 'Registrando...' : 'Registrar compra' }}</button>
+            <button (click)="savePurchase()" [disabled]="saving()" class="w-full rounded-lg bg-emerald-600 hover:bg-emerald-700 px-4 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60">{{ saving() ? 'Registrando...' : 'Registrar compra' }}</button>
             <button (click)="resetForm()" class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-100">Limpiar</button>
           </aside>
         </div>

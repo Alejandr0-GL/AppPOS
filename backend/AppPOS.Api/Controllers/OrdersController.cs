@@ -122,6 +122,7 @@ namespace AppPOS.Api.Controllers
                     o.ReceivedAmount,
                     o.ChangeAmount,
                     o.PaidAt,
+                    o.PriceChangeReason,
                     o.InvoiceType,
                     o.CancelledByUserId,
                     o.Status,
@@ -155,6 +156,8 @@ namespace AppPOS.Api.Controllers
                         detail.ProductId,
                         detail.Quantity,
                         detail.UnitPrice,
+                        detail.ListPrice,
+                        detail.Description,
                         detail.UnitCost,
                         detail.EmployeeId,
                         detail.AppliedCommissionPercentage,
@@ -261,9 +264,66 @@ namespace AppPOS.Api.Controllers
                         return BadRequest(new { message = $"El producto con ID {item.ProductId} no existe." });
                     }
 
-                    // El precio unitario SIEMPRE se toma del producto consultado en BD.
-                    // El UnitPrice enviado por el cliente se ignora para evitar manipulación de precios.
-                    decimal unitPrice = product.SalePrice;
+                    // El precio de lista SIEMPRE se toma del producto en BD (el UnitPrice del cliente se ignora).
+                    // POS-07: el cajero puede cobrar otro precio sólo de forma explícita (PriceOverride);
+                    // se congela el precio de lista para conservar la trazabilidad del cambio.
+                    decimal listPrice = product.SalePrice;
+                    decimal unitPrice = listPrice;
+                    decimal unitCost = product.PurchasePrice;
+                    string? lineDescription = null;
+
+                    if (product.IsOpenItem)
+                    {
+                        // POS-07: ítem abierto ("Otros"): descripción, precio y costo vienen de la venta.
+                        lineDescription = item.Description?.Trim();
+                        if (string.IsNullOrWhiteSpace(lineDescription))
+                        {
+                            return BadRequest(new { message = $"Escribe la descripción de '{product.Name}' (qué se está vendiendo)." });
+                        }
+
+                        if (lineDescription.Length > 150)
+                        {
+                            return BadRequest(new { message = $"La descripción de '{product.Name}' no puede superar 150 caracteres." });
+                        }
+
+                        var openPrice = Math.Round(item.PriceOverride ?? 0m, 2);
+                        if (openPrice <= 0m)
+                        {
+                            return BadRequest(new { message = $"El precio de '{lineDescription}' debe ser mayor a 0." });
+                        }
+
+                        unitCost = Math.Round(item.UnitCost ?? 0m, 2);
+                        if (unitCost < 0m)
+                        {
+                            return BadRequest(new { message = $"El costo de '{lineDescription}' no puede ser negativo." });
+                        }
+
+                        if (openPrice < unitCost)
+                        {
+                            return BadRequest(new { message = $"El precio de '{lineDescription}' ($ {openPrice:N0}) no puede ser menor al costo ($ {unitCost:N0})." });
+                        }
+
+                        // No hay precio "original" que comparar: el de lista es el mismo cobrado.
+                        unitPrice = openPrice;
+                        listPrice = openPrice;
+                    }
+                    else if (item.PriceOverride.HasValue)
+                    {
+                        var overridePrice = Math.Round(item.PriceOverride.Value, 2);
+                        if (overridePrice <= 0m)
+                        {
+                            return BadRequest(new { message = $"El precio de venta de '{product.Name}' debe ser mayor a 0." });
+                        }
+
+                        // Regla de negocio: un precio cambiado nunca puede quedar por debajo del costo
+                        // (insumo / compra). Igual al costo sí se permite (margen 0).
+                        if (overridePrice != listPrice && overridePrice < product.PurchasePrice)
+                        {
+                            return BadRequest(new { message = $"El precio de '{product.Name}' ($ {overridePrice:N0}) no puede ser menor al costo ($ {product.PurchasePrice:N0})." });
+                        }
+
+                        unitPrice = overridePrice;
+                    }
                     decimal lineBase = item.Quantity * unitPrice;
                     decimal calculatedTax = 0m;
 
@@ -281,7 +341,7 @@ namespace AppPOS.Api.Controllers
                         ? product.EmployeeCommissionPercentage
                         : 0m;
 
-                    var commissionBase = Math.Max(0m, unitPrice - product.PurchasePrice);
+                    var commissionBase = Math.Max(0m, unitPrice - unitCost);
                     var commissionAmount = commissionBase * (appliedCommissionPercentage / 100m);
                     var localProfitAmount = commissionBase * (product.BusinessProfitPercentage / 100m);
 
@@ -290,7 +350,9 @@ namespace AppPOS.Api.Controllers
                         ProductId = item.ProductId,
                         Quantity = item.Quantity,
                         UnitPrice = unitPrice,
-                        UnitCost = product.PurchasePrice,
+                        ListPrice = listPrice,
+                        Description = lineDescription,
+                        UnitCost = unitCost,
                         EmployeeId = item.EmployeeId,
                         AppliedCommissionPercentage = appliedCommissionPercentage,
                         CommissionAmount = commissionAmount,
@@ -326,9 +388,18 @@ namespace AppPOS.Api.Controllers
                     changeAmount = dto.ReceivedAmount.Value - grandTotal;
                 }
 
+                // POS-07: motivo único por venta, sólo si alguna línea se cobró distinto al precio de lista.
+                var anyPriceChanged = orderDetailsToInsert.Any(detail => detail.UnitPrice != detail.ListPrice);
+                var priceChangeReason = dto.PriceChangeReason?.Trim();
+                if (priceChangeReason?.Length > 200)
+                {
+                    return BadRequest(new { message = "El motivo del ajuste de precio no puede superar 200 caracteres." });
+                }
+
                 // Crear cabecera de la Orden
                 var order = new Order
                 {
+                    PriceChangeReason = anyPriceChanged && !string.IsNullOrWhiteSpace(priceChangeReason) ? priceChangeReason : null,
                     CustomerId = dto.CustomerId,
                     SectionId = dto.SectionId,
                     UserId = dto.UserId,
