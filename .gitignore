@@ -30,3 +30,6 @@ AGENT_CONTEXT.md
 .env
 ## POS-07: imágenes subidas por los usuarios (no versionar)
 backend/AppPOS.Api/wwwroot/uploads/
+
+## Paquetes de despliegue (deploy/local/publicar.ps1)
+artifacts/

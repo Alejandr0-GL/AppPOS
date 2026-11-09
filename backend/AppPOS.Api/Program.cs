@@ -13,6 +13,10 @@ using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Despliegue local: permite instalar la API como servicio de Windows (sc.exe create ...).
+// Fuera de un servicio (dotnet run, Docker, Linux) no hace nada.
+builder.Host.UseWindowsService();
+
 var myAllowSpecificOrigins = "_myAllowSpecificOrigins";
 
 // POS-07: orígenes permitidos configurables (Cors:AllowedOrigins). En la nube se agrega el
@@ -134,6 +138,14 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
+// Despliegue: aplica las migraciones pendientes al arrancar (Database:ApplyMigrationsOnStartup).
+// En desarrollo queda apagado y se sigue usando `dotnet ef database update`.
+if (builder.Configuration.GetValue<bool>("Database:ApplyMigrationsOnStartup"))
+{
+    using var scope = app.Services.CreateScope();
+    await scope.ServiceProvider.GetRequiredService<AppPosDbContext>().Database.MigrateAsync();
+}
+
 app.UseCors(myAllowSpecificOrigins);
 
 // Configure the HTTP request pipeline.
@@ -164,6 +176,15 @@ app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+
+// Despliegue: si el build de Angular se copió a wwwroot, la API sirve también el frontend
+// (mismo origen, apiUrl '/api'). Las rutas de Angular (/pos, /products…) caen en index.html;
+// una ruta /api inexistente sigue respondiendo 404 en vez de devolver la página.
+if (File.Exists(Path.Combine(app.Environment.WebRootPath ?? string.Empty, "index.html")))
+{
+    app.MapFallback("/api/{**rest}", () => Results.NotFound()).AllowAnonymous();
+    app.MapFallbackToFile("index.html").AllowAnonymous();
+}
 
 // SEC-01: primer acceso del administrador (Auth:BootstrapAdminPassword).
 await AdminBootstrapper.RunAsync(app.Services, app.Logger);
