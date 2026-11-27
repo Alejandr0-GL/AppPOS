@@ -14,6 +14,9 @@ param(
     [string]$Servicio = 'AppPOS',
     [int]$Puerto = 5000,
     [int]$MemoriaSqlMB = 2048,
+    # Contrasena inicial del usuario "admin" de la app (min. 8). Si no se pasa, se pregunta.
+    # Pasarla permite instalar sin consola interactiva (p. ej. desde un asistente).
+    [string]$PasswordAdmin = '',
     # Abre el puerto en el firewall (red privada) para entrar desde celulares por la IP del WiFi.
     # No hace falta con Tailscale.
     [switch]$AbrirFirewall,
@@ -121,9 +124,18 @@ else {
     $cadena['Password'] = $passwordSql
     $cadena['TrustServerCertificate'] = $true
 
-    do {
-        $passwordAdmin = Read-Host 'Contrasena inicial para el usuario "admin" de la app (minimo 8 caracteres)'
-    } while ($passwordAdmin.Length -lt 8)
+    $passwordAdmin = $PasswordAdmin
+    if ($passwordAdmin) {
+        if ($passwordAdmin.Length -lt 8) { throw '-PasswordAdmin debe tener al menos 8 caracteres.' }
+    }
+    elseif ([Environment]::UserInteractive -and -not ([Environment]::GetCommandLineArgs() -match '^-NonInteractive$')) {
+        do {
+            $passwordAdmin = Read-Host 'Contrasena inicial para el usuario "admin" de la app (minimo 8 caracteres)'
+        } while ($passwordAdmin.Length -lt 8)
+    }
+    else {
+        throw 'Sesion no interactiva: pasa la contrasena del admin con -PasswordAdmin "<minimo 8 caracteres>".'
+    }
 
     $config = [ordered]@{
         Urls              = "http://*:$Puerto"

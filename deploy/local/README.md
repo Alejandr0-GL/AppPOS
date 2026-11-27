@@ -89,7 +89,7 @@ C:\AppPOS\scripts\instalar.ps1 -CarpetaNube "G:\Mi unidad\AppPOS-Respaldos"
 El script:
 - instala el runtime de ASP.NET Core 9 si falta;
 - configura SQL Server y crea la base de datos `AppPOS_DB` con el usuario `apppos` y una contraseña aleatoria;
-- **te pide la contraseña inicial del usuario `admin`** de la app;
+- **te pide la contraseña inicial del usuario `admin`** de la app (o pásala con `-PasswordAdmin "..."` para instalar sin preguntas);
 - genera `C:\AppPOS\app\appsettings.json` con las claves;
 - crea el servicio `AppPOS`, que arranca solo con Windows y se reinicia si falla;
 - programa el respaldo automático a las 13:00 y a las 19:00 (si el portátil estaba apagado, se hace al encenderlo);
