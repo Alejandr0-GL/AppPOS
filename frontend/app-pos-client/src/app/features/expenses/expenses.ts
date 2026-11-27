@@ -46,7 +46,7 @@ interface ExpenseForm {
     <section class="space-y-4 p-4 md:p-6">
       <header class="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p class="text-xs font-bold uppercase tracking-wider text-indigo-600">EXP-01</p>
+          
           <h2 class="text-2xl font-black text-slate-900">Gastos</h2>
           <p class="text-sm text-slate-500">Registra los egresos y separa los gastos del negocio de los gastos personales / familiares.</p>
         </div>
@@ -210,7 +210,7 @@ interface ExpenseForm {
       <section class="fixed inset-4 z-50 m-auto h-fit max-h-[calc(100vh-2rem)] max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="expense-form-title" (keydown.escape)="closeForm()">
         <div class="flex items-start justify-between border-b pb-3">
           <div>
-            <p class="text-xs font-bold uppercase tracking-wider text-indigo-600">EXP-01</p>
+            
             <h3 id="expense-form-title" class="text-xl font-black text-slate-900">{{ editingId() ? 'Editar gasto' : 'Nuevo gasto' }}</h3>
           </div>
           <button type="button" (click)="closeForm()" class="text-2xl text-slate-400 hover:text-slate-700" aria-label="Cerrar">&times;</button>

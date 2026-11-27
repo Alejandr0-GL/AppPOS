@@ -6,7 +6,7 @@ import { environment } from '../../../../environments/environment';
 
 const data: ReceiptData = {
   company: { name: 'AppPOS Soluciones', nit: '901.234.567-8', address: 'Calle 45 # 12-34', phone: '+57 604 322 1188' },
-  documentTitle: 'Ticket POS / Factura de venta',
+  documentTitle: 'Comprobante de venta',
   orderNumber: 42,
   issuedAt: new Date('2026-10-30T10:15:00'),
   cashier: 'admin',
@@ -54,7 +54,7 @@ describe('ReceiptComponent', () => {
 
     expect(text).toContain('AppPOS Soluciones');
     expect(text).toContain('NIT: 901.234.567-8');
-    expect(text).toContain('Ticket POS / Factura de venta');
+    expect(text).toContain('Comprobante de venta');
     expect(text).toContain('#42');
     expect(text).toContain('Cambio de aceite');
     // El SKU se imprime sin la etiqueta "SKU " para no consumir ancho de línea.

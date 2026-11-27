@@ -3,6 +3,18 @@
 @import "tailwindcss/components";
 @import "tailwindcss/utilities";
 
+/* Modales y overlays (`fixed`) dentro de un contenedor `space-y-*`: Tailwind les pone
+   margin-top a todos los hijos menos el primero, y en un elemento fijo ese margen lo corre
+   hacia abajo (quedaba una franja sin oscurecer arriba). Se anula el margen heredado; los
+   paneles centrados con `m-auto` conservan su margen automático. */
+[class*="space-y-"] > .fixed:not(.m-auto) {
+  margin-top: 0 !important;
+}
+
+[class*="space-y-"] > .fixed.m-auto {
+  margin-top: auto !important;
+}
+
 /* POS-07 · <select> sin el botón nativo (en Windows pinta un recuadro gris al hacer hover que se
    sale del borde redondeado). Usar junto con `appearance-none pr-7`. */
 .select-chevron {

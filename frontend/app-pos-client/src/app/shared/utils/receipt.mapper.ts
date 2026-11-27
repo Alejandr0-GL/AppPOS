@@ -37,8 +37,20 @@ export function paymentMethodLabel(method?: string | null): string {
   return PAYMENT_LABELS[key] ?? method;
 }
 
-export function documentTypeLabel(invoiceType?: string | null): string {
-  return (invoiceType ?? '').toUpperCase() === 'ELECTRONIC' ? 'Factura electrónica' : 'Ticket POS / Factura de venta';
+function isElectronicInvoice(invoiceType?: string | null): boolean {
+  return (invoiceType ?? '').toUpperCase() === 'ELECTRONIC';
+}
+
+/**
+ * Todo lo que imprime Neptuno POS es un comprobante de control interno (no es factura ante la DIAN):
+ * la factura electrónica real se emite en otro software. El tipo sólo cambia la leyenda y el IVA.
+ */
+export function documentTypeLabel(_invoiceType?: string | null): string {
+  return 'Comprobante de venta';
+}
+
+function legalNoticeFor(invoiceType?: string | null): string {
+  return isElectronicInvoice(invoiceType) ? RECEIPT_MESSAGES.electronicNotice : RECEIPT_MESSAGES.internalNotice;
 }
 
 export function customerDocumentTypeLabel(documentType?: string | null): string {
@@ -139,6 +151,7 @@ export function buildReceiptData(order: Order): ReceiptData {
     changeAmount: order.changeAmount ?? null,
     status: order.status,
     thanksMessage: RECEIPT_MESSAGES.thanks,
-    policyMessage: RECEIPT_MESSAGES.policy
+    policyMessage: RECEIPT_MESSAGES.policy,
+    legalNotice: legalNoticeFor(order.invoiceType)
   };
 }

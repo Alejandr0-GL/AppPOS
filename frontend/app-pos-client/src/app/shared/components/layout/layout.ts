@@ -3,6 +3,7 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { PosService, Section } from '../../../features/pos/services/pos.service';
 import { AuthService } from '../../../core/auth/auth.service';
+import { DialogService } from '../../services/dialog.service';
 
 interface NavItem {
   path: string;
@@ -14,7 +15,7 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { path: '/dashboard', label: 'Dashboard', adminOnly: true, icon: 'M3 13h4v8H3v-8zM10 3h4v18h-4V3zM17 9h4v12h-4V9z' },
+  { path: '/dashboard', label: 'Reportes', adminOnly: true, icon: 'M3 13h4v8H3v-8zM10 3h4v18h-4V3zM17 9h4v12h-4V9z' },
   { path: '/pos', label: 'Punto de Venta (POS)', icon: 'M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z' },
   { path: '/sales-history', label: 'Historial de ventas', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 6h6m-6 4h6m-6 4h4' },
   { path: '/products', label: 'Productos', adminOnly: true, icon: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10' },
@@ -37,9 +38,8 @@ const NAV_ITEMS: NavItem[] = [
     <div class="flex h-screen bg-slate-100 font-sans">
       <!-- Sidebar -->
       <aside class="w-64 bg-slate-900 text-slate-300 flex flex-col shadow-xl">
-        <div class="p-5 text-xl font-bold text-white tracking-wider flex items-center gap-2 border-b border-slate-800">
-          <span class="p-2 bg-indigo-600 rounded-lg text-sm">POS</span>
-          <span>AppPOS</span>
+        <div class="p-5 text-xl font-bold text-white tracking-wider flex items-center justify-center gap-2 border-b border-slate-800">
+          <span>Neptuno <span class="text-cyan-400">POS</span></span>
         </div>
 
         <nav class="flex-1 p-4 space-y-1 overflow-y-auto">
@@ -55,7 +55,7 @@ const NAV_ITEMS: NavItem[] = [
         </nav>
 
         <div class="p-4 border-t border-slate-800 text-xs text-slate-500 text-center">
-          AppPOS System v1.0
+          v1.0.0
         </div>
       </aside>
 
@@ -84,7 +84,7 @@ const NAV_ITEMS: NavItem[] = [
               <span class="w-2.5 h-2.5 bg-emerald-500 rounded-full"></span>
               <div class="leading-tight">
                 <p class="text-sm font-semibold text-slate-700">{{ displayName() }}</p>
-                <p class="text-[11px] font-medium text-slate-400">{{ roleLabel() }} · {{ user()?.username }}</p>
+                <p class="text-[11px] font-medium text-slate-400">{{ user()?.username }}</p>
               </div>
             </div>
             <button (click)="logout()" class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 hover:border-red-300 hover:bg-red-50 hover:text-red-700">
@@ -104,6 +104,7 @@ const NAV_ITEMS: NavItem[] = [
 export class LayoutComponent implements OnInit {
   private readonly posService = inject(PosService);
   private readonly auth = inject(AuthService);
+  private readonly dialog = inject(DialogService);
 
   sections = signal<Section[]>([]);
   selectedSectionId = this.posService.selectedSectionId;
@@ -111,7 +112,6 @@ export class LayoutComponent implements OnInit {
   readonly user = this.auth.user;
   readonly isAdmin = this.auth.isAdmin;
   readonly displayName = this.auth.displayName;
-  readonly roleLabel = this.auth.roleLabel;
   readonly navItems = computed(() => NAV_ITEMS.filter(item => !item.adminOnly || this.isAdmin()));
 
   ngOnInit(): void {
@@ -131,21 +131,34 @@ export class LayoutComponent implements OnInit {
     });
   }
 
-  selectSection(sectionId: number): void {
+  async selectSection(sectionId: number): Promise<void> {
     if (sectionId === this.selectedSectionId() || !this.isAdmin()) return;
 
     if (this.posService.cartItems().length > 0) {
-      const confirmSwitch = confirm('Al cambiar de unidad se vaciará el carrito actual. ¿Deseas continuar?');
-      if (!confirmSwitch) return;
+      const confirmed = await this.dialog.confirm({
+        title: '¿Cambiar de unidad?',
+        message: 'Al cambiar de unidad se vaciará el carrito actual.',
+        tone: 'warning',
+        confirmText: 'Cambiar y vaciar carrito',
+        cancelText: 'Seguir en esta unidad'
+      });
+      if (!confirmed) return;
       this.posService.cartItems.set([]);
     }
 
     this.selectedSectionId.set(sectionId);
   }
 
-  logout(): void {
-    if (this.posService.cartItems().length > 0 && !confirm('Hay productos en el carrito y se perderán al cerrar sesión. ¿Deseas salir?')) {
-      return;
+  async logout(): Promise<void> {
+    if (this.posService.cartItems().length > 0) {
+      const confirmed = await this.dialog.confirm({
+        title: '¿Cerrar sesión?',
+        message: 'Hay productos en el carrito y se perderán al cerrar sesión.',
+        tone: 'warning',
+        confirmText: 'Cerrar sesión',
+        cancelText: 'Seguir vendiendo'
+      });
+      if (!confirmed) return;
     }
     this.auth.logout();
   }

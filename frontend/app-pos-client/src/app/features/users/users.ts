@@ -30,7 +30,7 @@ interface UserForm {
     <section class="space-y-4 p-4 md:p-6">
       <header class="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p class="text-xs font-bold uppercase tracking-wider text-indigo-600">SEC-01</p>
+          
           <h2 class="text-2xl font-black text-slate-900">Usuarios</h2>
           <p class="text-sm text-slate-500">Quién puede entrar al sistema y qué puede hacer.</p>
         </div>

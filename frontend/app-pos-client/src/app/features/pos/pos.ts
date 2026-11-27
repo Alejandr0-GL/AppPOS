@@ -1,16 +1,17 @@
-import { Component, effect, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, effect, inject, OnInit, signal, computed, untracked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject, debounceTime, distinctUntilChanged, switchMap, of } from 'rxjs';
 import { PosService, Section } from './services/pos.service';
 import { AuthService } from '../../core/auth/auth.service';
-import { CartItem, Product, Customer, CreateOrderDto, Employee } from '../../shared/models/pos.models';
+import { CartItem, Product, Customer, CreateOrderDto, Employee, StockShortage } from '../../shared/models/pos.models';
 import { CustomersService } from '../customers/services/customers.service';
 import { EmployeesService } from '../employees/services/employees.service';
 import { ReceiptComponent } from '../../shared/components/receipt/receipt';
 import { ReceiptData } from '../../shared/models/receipt.models';
 import { buildReceiptData } from '../../shared/utils/receipt.mapper';
 import { productImageSrc } from '../../shared/utils/product-image';
+import { DialogService } from '../../shared/services/dialog.service';
 import {
   InvoiceType,
   applicableTaxPercentage,
@@ -198,7 +199,7 @@ interface QuickCustomerForm {
           @for (item of cart(); track item.lineId; let i = $index) {
             <div class="py-3 flex justify-between items-center gap-2">
               <div class="flex-1">
-                <h4 class="font-medium text-slate-800 text-sm">{{ item.description || item.product.name }} @if (item.product.isOpenItem) { <span class="ml-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-amber-700">Otros</span> } @else if (item.product.isService) { <span class="ml-1 rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-indigo-700">Servicio</span> }</h4>
+                <h4 class="font-medium text-slate-800 text-sm">{{ item.description || item.product.name }} @if (item.product.isOpenItem) { <span class="ml-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-amber-700">Otros</span> }</h4>
                 <!-- POS-07: precio unitario (ámbar si se cambió) + ↺ para volver al precio original -->
                 <div class="flex items-center gap-1">
                   <span class="text-xs" [class.text-slate-400]="!isPriceChanged(item)" [class.font-semibold]="isPriceChanged(item)" [class.text-amber-600]="isPriceChanged(item)">\${{ (item.unitPrice ?? 0) | number:'1.0-0' }} c/u</span>
@@ -223,7 +224,7 @@ interface QuickCustomerForm {
                 }
                 @if (requiresEmployee(item.product)) {
                   <!-- POS-07: appearance-none quita el botón nativo de Windows (recuadro gris al hacer hover); flecha propia en SVG -->
-                  <select [(ngModel)]="item.employeeId" [attr.aria-label]="'Técnico responsable de ' + (item.description || item.product.name)" class="select-chevron mt-1 w-full cursor-pointer appearance-none truncate rounded-lg border border-slate-300 bg-white py-1 pl-2 pr-7 text-xs text-slate-700 outline-none transition-colors hover:border-indigo-400 focus:ring-2 focus:ring-indigo-500">
+                  <select [ngModel]="item.employeeId" (ngModelChange)="setEmployee(i, $event)"[attr.aria-label]="'Técnico responsable de ' + (item.description || item.product.name)" class="select-chevron mt-1 w-full cursor-pointer appearance-none truncate rounded-lg border border-slate-300 bg-white py-1 pl-2 pr-7 text-xs text-slate-700 outline-none transition-colors hover:border-indigo-400 focus:ring-2 focus:ring-indigo-500">
                     <option [ngValue]="null">Asignar técnico responsable...</option>
                     @for (employee of employees(); track employee.employeeId) {
                       <option [ngValue]="employee.employeeId">{{ employee.name }}</option>
@@ -276,6 +277,16 @@ interface QuickCustomerForm {
 
         <!-- Configuración de Factura y Totales -->
         <div class="p-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl space-y-3">
+          <!-- Servicios sin técnico responsable asignado -->
+          @if (pendingEmployeeError(); as employeeError) {
+            <p class="rounded-lg bg-amber-50 px-3 py-2 text-[11px] font-bold leading-snug text-amber-700 ring-1 ring-amber-200" role="alert">{{ employeeError }}</p>
+          }
+
+          <!-- INV-01: la factura electrónica exige un cliente identificado y con correo -->
+          @if (electronicCustomerError(); as customerError) {
+            <p class="rounded-lg bg-amber-50 px-3 py-2 text-[11px] font-bold leading-snug text-amber-700 ring-1 ring-amber-200" role="alert">{{ customerError }}</p>
+          }
+
           <div class="flex gap-2">
             <button
               type="button"
@@ -292,11 +303,6 @@ interface QuickCustomerForm {
               Factura Electrónica
             </button>
           </div>
-
-          <!-- INV-01: la factura electrónica exige un cliente identificado y con correo -->
-          @if (electronicCustomerError(); as customerError) {
-            <p class="rounded-lg bg-amber-50 px-3 py-2 text-[11px] font-bold leading-snug text-amber-700 ring-1 ring-amber-200" role="alert">{{ customerError }}</p>
-          }
 
           <div class="space-y-1 pt-2 border-t border-slate-200 text-sm">
             <div class="flex justify-between text-slate-500">
@@ -431,7 +437,42 @@ interface QuickCustomerForm {
         </section>
       }
 
-      @if (customerModalOpen()) {<div class="fixed inset-0 z-40 bg-slate-950/50" (click)="closeQuickCustomer()"></div><section class="fixed inset-4 z-50 m-auto max-h-[calc(100vh-2rem)] max-w-2xl overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl"><div class="flex justify-between border-b pb-4"><h3 class="text-xl font-black">Nuevo cliente</h3><button (click)="closeQuickCustomer()" class="text-2xl text-slate-400">&times;</button></div><div class="grid gap-3 py-5 md:grid-cols-2"><label class="text-xs font-bold uppercase">Nombre *<input [(ngModel)]="quickCustomer.name" class="mt-1 w-full rounded border px-3 py-2 text-sm" /></label><label class="text-xs font-bold uppercase">Tipo documento *<select [(ngModel)]="quickCustomer.documentType" (ngModelChange)="onQuickDocumentTypeChange()" class="mt-1 w-full rounded border bg-white px-3 py-2 text-sm"><option value="CC">Cédula de Ciudadanía</option><option value="NIT">NIT</option><option value="CE">Cédula de Extranjería</option><option value="PASSPORT">Pasaporte</option></select></label><label class="text-xs font-bold uppercase">Número documento *<input [(ngModel)]="quickCustomer.documentNumber" class="mt-1 w-full rounded border px-3 py-2 text-sm" /></label><label class="text-xs font-bold uppercase">Teléfono<input [(ngModel)]="quickCustomer.phone" class="mt-1 w-full rounded border px-3 py-2 text-sm" /></label><label class="text-xs font-bold uppercase">Dirección<input [(ngModel)]="quickCustomer.address" class="mt-1 w-full rounded border px-3 py-2 text-sm" /></label><label class="text-xs font-bold uppercase">Ciudad<input [(ngModel)]="quickCustomer.city" class="mt-1 w-full rounded border px-3 py-2 text-sm" /></label><label class="text-xs font-bold uppercase">Departamento<input [(ngModel)]="quickCustomer.department" class="mt-1 w-full rounded border px-3 py-2 text-sm" /></label><label class="text-xs font-bold uppercase">Correo<input [(ngModel)]="quickCustomer.email" type="email" class="mt-1 w-full rounded border px-3 py-2 text-sm" /></label></div><div class="flex justify-end gap-2 border-t pt-4"><button (click)="closeQuickCustomer()" class="rounded border px-4 py-2 text-sm font-bold">Cancelar</button><button (click)="saveQuickCustomer()" class="rounded bg-emerald-600 hover:bg-emerald-700 px-5 py-2 text-sm font-bold text-white">Guardar cliente</button></div></section>}
+      <!-- Stock insuficiente al cobrar -->
+      @if (stockShortages(); as shortages) {
+        <div class="fixed inset-0 z-40 bg-slate-950/50" (click)="closeStockShortages()"></div>
+        <section class="fixed inset-x-4 top-1/2 z-50 mx-auto w-full max-w-md -translate-y-1/2 rounded-2xl bg-white p-5 shadow-2xl" role="alertdialog" aria-modal="true" aria-labelledby="stock-title" aria-describedby="stock-description" (keydown.escape)="closeStockShortages()">
+          <div class="flex items-start gap-3 border-b pb-3">
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 text-lg font-black text-amber-600" aria-hidden="true">!</div>
+            <div class="flex-1">
+              <h3 id="stock-title" class="text-lg font-black text-slate-900">Stock insuficiente</h3>
+              <p id="stock-description" class="text-xs text-slate-500">La venta no se registró. Ajusta las cantidades para continuar.</p>
+            </div>
+            <button type="button" (click)="closeStockShortages()" class="text-2xl text-slate-400 hover:text-slate-700" aria-label="Cerrar">&times;</button>
+          </div>
+          <ul class="max-h-64 divide-y overflow-y-auto py-2">
+            @for (shortage of shortages; track shortage.productId) {
+              <li class="flex items-center justify-between gap-3 py-2">
+                <div class="min-w-0">
+                  <p class="truncate text-sm font-bold text-slate-800">{{ shortage.productName }}</p>
+                  <p class="text-xs text-slate-500">
+                    En el carrito: <span class="font-bold text-slate-700">{{ shortage.requested }}</span>
+                  </p>
+                </div>
+                @if (shortage.available > 0) {
+                  <span class="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-700">Quedan {{ shortage.available }}</span>
+                } @else {
+                  <span class="shrink-0 rounded-full bg-red-100 px-2.5 py-1 text-xs font-bold text-red-700">Agotado</span>
+                }
+              </li>
+            }
+          </ul>
+          <div class="mt-3 flex justify-end gap-2 border-t pt-3">
+            <button type="button" (click)="closeStockShortages()" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50">Volver al carrito</button>
+          </div>
+        </section>
+      }
+
+      @if (customerModalOpen()) {<div class="fixed inset-0 z-40 bg-slate-950/50" (click)="closeQuickCustomer()"></div><section class="fixed inset-4 z-50 m-auto max-h-[calc(100vh-2rem)] max-w-2xl overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl"><div class="flex justify-between border-b pb-4"><h3 class="text-xl font-black">Nuevo cliente</h3><button (click)="closeQuickCustomer()" class="text-2xl text-slate-400">&times;</button></div><div class="grid gap-3 py-5 md:grid-cols-2"><label class="text-xs font-bold uppercase">Nombre *<input [(ngModel)]="quickCustomer.name" class="mt-1 w-full rounded border px-3 py-2 text-sm" /></label><label class="text-xs font-bold uppercase">Tipo documento *<select [(ngModel)]="quickCustomer.documentType" (ngModelChange)="onQuickDocumentTypeChange()" class="mt-1 w-full rounded border bg-white px-3 py-2 text-sm"><option value="CC">Cédula de Ciudadanía</option><option value="NIT">NIT</option><option value="CE">Cédula de Extranjería</option><option value="PASSPORT">Pasaporte</option></select></label><label class="text-xs font-bold uppercase">Número documento *<input [(ngModel)]="quickCustomer.documentNumber" class="mt-1 w-full rounded border px-3 py-2 text-sm" /></label><label class="text-xs font-bold uppercase">Teléfono<input [(ngModel)]="quickCustomer.phone" class="mt-1 w-full rounded border px-3 py-2 text-sm" /></label><label class="text-xs font-bold uppercase">Dirección<input [(ngModel)]="quickCustomer.address" class="mt-1 w-full rounded border px-3 py-2 text-sm" /></label><label class="text-xs font-bold uppercase">Ciudad<input [(ngModel)]="quickCustomer.city" class="mt-1 w-full rounded border px-3 py-2 text-sm" /></label><label class="text-xs font-bold uppercase">Departamento<input [(ngModel)]="quickCustomer.department" class="mt-1 w-full rounded border px-3 py-2 text-sm" /></label><label class="text-xs font-bold uppercase">Correo<input [(ngModel)]="quickCustomer.email" type="email" class="mt-1 w-full rounded border px-3 py-2 text-sm" /></label></div>@if (quickCustomerError()) {<p class="mb-3 rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-red-700" role="alert">{{ quickCustomerError() }}</p>}<div class="flex justify-end gap-2 border-t pt-4"><button (click)="closeQuickCustomer()" class="rounded border px-4 py-2 text-sm font-bold">Cancelar</button><button (click)="saveQuickCustomer()" class="rounded bg-emerald-600 hover:bg-emerald-700 px-5 py-2 text-sm font-bold text-white">Guardar cliente</button></div></section>}
 
       @if (receiptData(); as receipt) {
         <app-receipt [data]="receipt" [success]="saleCompleted()" (closed)="closeReceipt()"></app-receipt>
@@ -444,6 +485,7 @@ export class PosComponent implements OnInit {
   private auth = inject(AuthService);
   private customersService = inject(CustomersService);
   private employeesService = inject(EmployeesService);
+  private dialog = inject(DialogService);
 
   sections = signal<Section[]>([]);
   selectedSectionId = signal<number>(1);
@@ -511,6 +553,24 @@ export class PosComponent implements OnInit {
   cartTotal = computed(() => roundMoney(this.cartSubtotal() + this.cartTax()));
 
   /** INV-01: motivo por el que no se puede emitir la factura electrónica con el cliente actual. */
+  /** Aviso de servicios sin técnico responsable: aparece al intentar cobrar y se va al asignarlos. */
+  pendingEmployeeError = signal<string | null>(null);
+
+  private findPendingEmployeeError(): string | null {
+    const pending = this.cart().filter(item => this.requiresEmployee(item.product) && !item.employeeId);
+    return pending.length > 0 ? `Asigna un técnico responsable para: ${pending.map(item => item.description || item.product.name).join(', ')}.` : null;
+  }
+
+  setEmployee(index: number, employeeId: number | null) {
+    this.cart.update(items => items.map((item, i) => i === index ? { ...item, employeeId } : item));
+  }
+
+  // Si el aviso ya está visible, se actualiza (o desaparece) con cada cambio del carrito.
+  private readonly pendingEmployeeRefresh = effect(() => {
+    this.cart();
+    if (untracked(this.pendingEmployeeError)) this.pendingEmployeeError.set(this.findPendingEmployeeError());
+  });
+
   electronicCustomerError = computed(() => {
     if (this.invoiceType() !== 'ELECTRONIC' || this.cart().length === 0) return null;
     return electronicInvoiceCustomerError(this.selectedCustomer()?.name ?? this.customerName());
@@ -569,7 +629,11 @@ export class PosComponent implements OnInit {
         this.receiptData.set(buildReceiptData(order));
         this.saleCompleted.set(true);
       },
-      error: () => alert('La venta se registró, pero no fue posible cargar el recibo para imprimir.')
+      error: () => this.dialog.alert({
+        title: 'Venta registrada',
+        message: 'La venta se registró, pero no fue posible cargar el recibo para imprimir. Puedes abrirlo desde el historial de ventas.',
+        tone: 'warning'
+      })
     });
   }
 
@@ -631,12 +695,17 @@ export class PosComponent implements OnInit {
     this.customerSearchResults.set([]);
   }
 
+  /** Error de validación/guardado del modal "Nuevo cliente" (se muestra dentro del modal). */
+  readonly quickCustomerError = signal<string | null>(null);
+
   openQuickCustomer() {
     this.quickCustomer = this.emptyQuickCustomer();
+    this.quickCustomerError.set(null);
     this.customerModalOpen.set(true);
   }
 
   closeQuickCustomer() {
+    this.quickCustomerError.set(null);
     this.customerModalOpen.set(false);
   }
 
@@ -649,12 +718,13 @@ export class PosComponent implements OnInit {
 
   saveQuickCustomer() {
     this.onQuickDocumentTypeChange();
+    this.quickCustomerError.set(null);
     if (!this.quickCustomer.name.trim() || !this.quickCustomer.documentNumber.trim()) {
-      alert('Nombre y documento son obligatorios.');
+      this.quickCustomerError.set('Nombre y documento son obligatorios.');
       return;
     }
     if (this.quickCustomer.documentType === 'NIT' && (!this.quickCustomer.address.trim() || !this.quickCustomer.city.trim())) {
-      alert('Dirección y ciudad son obligatorias para NIT.');
+      this.quickCustomerError.set('Dirección y ciudad son obligatorias para NIT.');
       return;
     }
 
@@ -672,7 +742,7 @@ export class PosComponent implements OnInit {
         this.selectedCustomer.set(customer);
         this.closeQuickCustomer();
       },
-      error: error => alert(error.error?.message || 'No fue posible crear el cliente.')
+      error: error => this.quickCustomerError.set(error.error?.message || 'No fue posible crear el cliente.')
     });
   }
 
@@ -700,8 +770,23 @@ export class PosComponent implements OnInit {
         this.products.set(data);
         this.filteredProducts.set(data);
         this.currentPage.set(1);
+        this.syncCartWithCatalog(data);
       }
     });
+  }
+
+  /**
+   * El carrito guarda una copia del producto al agregarlo; si luego se editó en el catálogo
+   * (p. ej. el precio de venta), se refresca aquí. Un precio cambiado a mano por el cajero se respeta.
+   */
+  private syncCartWithCatalog(catalog: Product[]) {
+    const byId = new Map(catalog.map(p => [p.productId, p]));
+    this.cart.update(items => items.map(item => {
+      const fresh = byId.get(item.product.productId);
+      if (!fresh || fresh === item.product) return item;
+      const keepManualPrice = item.product.isOpenItem || this.isPriceChanged(item);
+      return { ...item, product: fresh, unitPrice: keepManualPrice ? item.unitPrice : fresh.salePrice };
+    }));
   }
 
   filterProducts() {
@@ -926,26 +1011,27 @@ export class PosComponent implements OnInit {
     const customer = this.selectedCustomer();
     if (this.processingSale()) return;
 
-    const pendingEmployees = this.cart().filter(item => this.requiresEmployee(item.product) && !item.employeeId);
-    if (pendingEmployees.length > 0) {
-      alert(`Asigna un técnico responsable para: ${pendingEmployees.map(item => item.product.name).join(', ')}.`);
-      return;
-    }
-
-    const customerError = this.electronicCustomerError();
-    if (customerError) {
-      alert(customerError);
-      return;
-    }
+    // Los avisos de técnico y de cliente se muestran en el panel, encima del tipo de factura.
+    this.pendingEmployeeError.set(this.findPendingEmployeeError());
+    if (this.pendingEmployeeError() || this.electronicCustomerError()) return;
 
     const invalidPrices = this.cart().filter(item => !this.isPriceValid(item));
     if (invalidPrices.length > 0) {
-      alert(`Revisa el precio de:\n${invalidPrices.map(item => `• ${item.product.name}: ${this.priceError(item)}`).join('\n')}`);
+      this.dialog.alert({
+        title: 'Revisa los precios',
+        message: 'Corrige estos precios antes de cobrar:',
+        details: invalidPrices.map(item => `${item.description || item.product.name}: ${this.priceError(item)}`),
+        tone: 'warning'
+      });
       return;
     }
 
     if (this.hasPriceChanges() && this.priceReasonRequired() && !this.priceChangeReason.trim()) {
-      alert('Escribe el motivo del ajuste de precio antes de cobrar.');
+      this.dialog.alert({
+        title: 'Falta el motivo del ajuste',
+        message: 'Escribe el motivo del ajuste de precio antes de cobrar.',
+        tone: 'warning'
+      });
       return;
     }
 
@@ -954,7 +1040,11 @@ export class PosComponent implements OnInit {
       : null;
 
     if (receivedAmount !== null && receivedAmount < this.cartTotal()) {
-      alert('El efectivo recibido es menor al total a pagar.');
+      this.dialog.alert({
+        title: 'Efectivo insuficiente',
+        message: 'El efectivo recibido es menor al total a pagar.',
+        tone: 'warning'
+      });
       return;
     }
 
@@ -997,8 +1087,45 @@ export class PosComponent implements OnInit {
       },
       error: (err) => {
         this.processingSale.set(false);
-        alert(`Error al cobrar: ${err.error?.message || err.message}`);
+        if (err.error?.code === 'INSUFFICIENT_STOCK' && Array.isArray(err.error.items)) {
+          this.stockShortages.set(err.error.items);
+          return;
+        }
+        this.dialog.alert({
+          title: 'No se pudo cobrar',
+          message: `La venta no se registró. ${err.error?.message || err.message || ''}`.trim(),
+          tone: 'danger'
+        });
       }
     });
+  }
+
+  /** Productos sin stock suficiente en el último intento de cobro (null = ventana cerrada). */
+  readonly stockShortages = signal<StockShortage[] | null>(null);
+
+  closeStockShortages() {
+    this.stockShortages.set(null);
+  }
+
+  /**
+   * Deja cada producto con lo disponible: un mismo producto puede estar en varias líneas
+   * (p. ej. una por técnico), así que lo disponible se reparte en orden y las líneas que
+   * quedan en 0 se quitan del carrito.
+   */
+  adjustCartToStock() {
+    const shortages = this.stockShortages();
+    if (!shortages) return;
+
+    const remaining = new Map(shortages.map(shortage => [shortage.productId, shortage.available]));
+    this.cancelPriceEdit();
+    this.cart.set(this.cart().flatMap(item => {
+      const left = remaining.get(item.product.productId);
+      if (left === undefined) return [item];
+
+      const quantity = Math.min(item.quantity, left);
+      remaining.set(item.product.productId, left - quantity);
+      return quantity > 0 ? [{ ...item, quantity }] : [];
+    }));
+    this.stockShortages.set(null);
   }
 }

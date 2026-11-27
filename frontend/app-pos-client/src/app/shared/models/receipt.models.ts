@@ -58,4 +58,6 @@ export interface ReceiptData {
   status: string;
   thanksMessage: string;
   policyMessage: string;
+  /** Leyenda legal al pie (p. ej. "no válido como factura"); null si no aplica. */
+  legalNotice?: string | null;
 }

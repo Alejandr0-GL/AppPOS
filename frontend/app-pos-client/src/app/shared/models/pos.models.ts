@@ -33,6 +33,15 @@ export interface Customer {
 }
 
 /** Línea del carrito del POS. */
+/** Producto sin stock suficiente al cobrar (respuesta del servidor con code = 'INSUFFICIENT_STOCK'). */
+export interface StockShortage {
+  productId: number;
+  productName: string;
+  /** Total pedido en el carrito (sumando todas las líneas del producto). */
+  requested: number;
+  available: number;
+}
+
 export interface CartItem {
   /** Identificador único de la línea (un mismo ítem "Otros" puede repetirse con distinta descripción). */
   lineId: string;

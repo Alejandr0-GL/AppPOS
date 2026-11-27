@@ -58,7 +58,7 @@ describe('receipt.mapper', () => {
 
     expect(receipt.company.name).toBe(COMPANY_INFO.name);
     expect(receipt.company.nit).toBe(COMPANY_INFO.nit);
-    expect(receipt.documentTitle).toBe('Ticket POS / Factura de venta');
+    expect(receipt.documentTitle).toBe('Comprobante de venta');
     expect(receipt.orderNumber).toBe(42);
     expect(receipt.cashier).toBe('admin');
     expect(receipt.sectionName).toBe('Lubricentro');
@@ -105,6 +105,16 @@ describe('receipt.mapper', () => {
     expect(receipt.subtotal).toBe(120000);
     expect(receipt.taxBreakdown).toEqual([{ label: 'IVA 19%', base: 100000, amount: 19000 }]);
     expect(receipt.items[1].taxLabel).toBeNull();
+  });
+
+  it('el comprobante para factura electrónica y el de venta llevan su leyenda de control interno', () => {
+    const electronic = buildReceiptData(createOrder({ invoiceType: 'ELECTRONIC' }));
+    const pos = buildReceiptData(createOrder({ invoiceType: 'POS' }));
+
+    expect(electronic.documentTitle).toBe('Comprobante de venta');
+    expect(electronic.legalNotice).toContain('No válido como factura');
+    expect(pos.documentTitle).toBe('Comprobante de venta');
+    expect(pos.legalNotice).toBe('Documento de control interno – No válido como factura.');
   });
 
   it('INV-01: factura de venta sin impuesto no muestra IVA', () => {
@@ -162,9 +172,9 @@ describe('receipt.mapper', () => {
   });
 
   it('traduce el tipo de comprobante y el método de pago', () => {
-    expect(documentTypeLabel('ELECTRONIC')).toBe('Factura electrónica');
-    expect(documentTypeLabel('POS')).toBe('Ticket POS / Factura de venta');
-    expect(documentTypeLabel(undefined)).toBe('Ticket POS / Factura de venta');
+    expect(documentTypeLabel('ELECTRONIC')).toBe('Comprobante de venta');
+    expect(documentTypeLabel('POS')).toBe('Comprobante de venta');
+    expect(documentTypeLabel(undefined)).toBe('Comprobante de venta');
     expect(paymentMethodLabel('CASH')).toBe('Efectivo');
     expect(paymentMethodLabel('transfer')).toBe('Transferencia');
     expect(paymentMethodLabel('CREDIT')).toBe('Crédito (pendiente)');
