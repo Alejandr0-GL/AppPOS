@@ -3,6 +3,7 @@ import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Employee, EmployeeCommissionReport } from '../../shared/models/pos.models';
 import { EmployeesService } from './services/employees.service';
+import { DialogService } from '../../shared/services/dialog.service';
 
 interface EmployeeForm {
   name: string;
@@ -19,7 +20,7 @@ interface EmployeeForm {
     <section class="space-y-4 p-4 md:p-6">
       <header class="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p class="text-xs font-bold uppercase tracking-wider text-indigo-600">PROD-02 / POS-04</p>
+          
           <h2 class="text-2xl font-black text-slate-900">Empleados y comisiones</h2>
           <p class="text-sm text-slate-500">Gestiona al personal y liquida las comisiones por servicios prestados.</p>
         </div>
@@ -201,6 +202,7 @@ interface EmployeeForm {
 })
 export class EmployeesComponent {
   private readonly employeesService = inject(EmployeesService);
+  private readonly dialog = inject(DialogService);
 
   employees = signal<Employee[]>([]);
   activeTab = signal<'staff' | 'commissions'>('staff');
@@ -316,8 +318,15 @@ export class EmployeesComponent {
     });
   }
 
-  deactivate(employee: Employee): void {
-    if (!confirm(`¿Deseas desactivar a ${employee.name}?`)) return;
+  async deactivate(employee: Employee): Promise<void> {
+    const confirmed = await this.dialog.confirm({
+      title: 'Desactivar empleado',
+      message: `¿Deseas desactivar a ${employee.name}?`,
+      tone: 'danger',
+      confirmText: 'Desactivar',
+      cancelText: 'Volver'
+    });
+    if (!confirmed) return;
 
     this.clearMessages();
     this.employeesService.deleteEmployee(employee.employeeId).subscribe({

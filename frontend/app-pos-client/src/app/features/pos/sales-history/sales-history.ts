@@ -9,6 +9,7 @@ import { buildReceiptData, isPendingPayment, paymentMethodLabel, statusLabel } f
 import { ReceiptComponent } from '../../../shared/components/receipt/receipt';
 import { PosService } from '../services/pos.service';
 import { AuthService } from '../../../core/auth/auth.service';
+import { DialogService } from '../../../shared/services/dialog.service';
 
 @Component({
   selector: 'app-sales-history',
@@ -18,7 +19,7 @@ import { AuthService } from '../../../core/auth/auth.service';
     <section class="p-4 md:p-6 space-y-4">
       <header class="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p class="text-xs font-bold uppercase tracking-wider text-indigo-600">POS-03</p>
+          
           <h2 class="text-2xl font-black text-slate-900">Historial de ventas</h2>
           <p class="text-sm text-slate-500">Consulta comprobantes y revisa cada producto vendido.</p>
         </div>
@@ -209,6 +210,7 @@ import { AuthService } from '../../../core/auth/auth.service';
 })
 export class SalesHistoryComponent {
   private readonly posService = inject(PosService);
+  private readonly dialog = inject(DialogService);
   /** SEC-01: sólo el administrador anula ventas. */
   readonly isAdmin = inject(AuthService).isAdmin;
   private readonly route = inject(ActivatedRoute);
@@ -426,8 +428,15 @@ export class SalesHistoryComponent {
     return taxLabel(detail.taxName, percentage);
   }
 
-  cancelOrder(orderId: number): void {
-    if (!confirm(`¿Deseas cancelar la orden #${orderId}? El stock será restaurado.`)) return;
+  async cancelOrder(orderId: number): Promise<void> {
+    const confirmed = await this.dialog.confirm({
+      title: `¿Cancelar la orden #${orderId}?`,
+      message: 'La venta quedará anulada y el stock será restaurado.',
+      tone: 'danger',
+      confirmText: 'Cancelar orden',
+      cancelText: 'Volver'
+    });
+    if (!confirmed) return;
 
     this.posService.cancelOrder(orderId).subscribe({
       next: () => {

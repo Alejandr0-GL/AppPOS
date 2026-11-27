@@ -5,6 +5,7 @@ import { CreatePurchaseDto, Product, PurchaseSummary, Supplier } from '../../sha
 import { PosService, Section } from '../pos/services/pos.service';
 import { SupplierFormModalComponent } from '../suppliers/supplier-form-modal';
 import { PurchasesService } from './services/purchases.service';
+import { DialogService } from '../../shared/services/dialog.service';
 
 interface PurchaseLine {
   productId: number;
@@ -22,7 +23,7 @@ interface PurchaseLine {
     <section class="space-y-4 p-4 md:p-6">
       <header class="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p class="text-xs font-bold uppercase tracking-wider text-indigo-600">PUR-01</p>
+          
           <h2 class="text-2xl font-black text-slate-900">Compras y recepción de mercadería</h2>
           <p class="text-sm text-slate-500">Registra ingresos de mercadería y actualiza el costo y el stock por unidad de negocio.</p>
         </div>
@@ -257,6 +258,7 @@ interface PurchaseLine {
 export class PurchasesComponent {
   private readonly purchasesService = inject(PurchasesService);
   private readonly posService = inject(PosService);
+  private readonly dialog = inject(DialogService);
 
   purchases = signal<PurchaseSummary[]>([]);
   suppliers = signal<Supplier[]>([]);
@@ -363,10 +365,18 @@ export class PurchasesComponent {
     this.selectedPurchase.set(null);
   }
 
-  cancelPurchase(purchase: PurchaseSummary): void {
+  async cancelPurchase(purchase: PurchaseSummary): Promise<void> {
     if (purchase.status !== 'COMPLETED') return;
     if (this.cancellingPurchaseId() !== null) return;
-    if (!confirm(`¿Deseas anular la compra #${purchase.purchaseId}? El stock ingresado será revertido.`)) return;
+    const confirmed = await this.dialog.confirm({
+      title: `¿Anular la compra #${purchase.purchaseId}?`,
+      message: 'El stock ingresado con esta compra será revertido.',
+      tone: 'danger',
+      confirmText: 'Anular compra',
+      cancelText: 'Volver'
+    });
+    // Mientras el diálogo estaba abierto pudo iniciarse otra anulación.
+    if (!confirmed || this.cancellingPurchaseId() !== null) return;
 
     this.clearMessages();
     this.cancellingPurchaseId.set(purchase.purchaseId);

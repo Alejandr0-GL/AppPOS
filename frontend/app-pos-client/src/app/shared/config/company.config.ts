@@ -25,5 +25,9 @@ export const COMPANY_INFO: CompanyInfo = {
 export const RECEIPT_MESSAGES = {
   thanks: '¡Gracias por su compra!',
   policy:
-    'Cambios y devoluciones dentro de los 30 días presentando este comprobante. Los servicios técnicos cuentan con 90 días de garantía.'
+    '',
+  /** Leyendas del pie: todo comprobante de Neptuno POS es de control interno (no es factura ante la DIAN). */
+  internalNotice: 'Documento de control interno – No válido como factura.',
+  /** Venta marcada para factura electrónica: la factura real se emite en otro software y llega al correo. */
+  electronicNotice:'Documento de control interno – No válido como factura. La factura electrónica se enviará a su correo.'
 };

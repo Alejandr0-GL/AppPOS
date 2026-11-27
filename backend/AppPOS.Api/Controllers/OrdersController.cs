@@ -325,6 +325,46 @@ namespace AppPOS.Api.Controllers
                     }
                 }
 
+                // Stock: se valida TODO el carrito antes de crear la orden, para decirle al cajero
+                // exactamente qué falta y cuánto hay. Un mismo producto puede venir en varias líneas
+                // (p. ej. una por técnico), por eso se suma por producto.
+                var requestedStock = dto.Details
+                    .Where(detail => products.TryGetValue(detail.ProductId, out var product) && !product.IsService)
+                    .GroupBy(detail => detail.ProductId)
+                    .Select(group => new { ProductId = group.Key, Quantity = group.Sum(detail => detail.Quantity) })
+                    .ToList();
+
+                if (requestedStock.Count > 0)
+                {
+                    var stockProductIds = requestedStock.Select(item => item.ProductId).ToList();
+                    var availableStock = await _context.Inventories
+                        .Where(inventory => inventory.SectionId == dto.SectionId && stockProductIds.Contains(inventory.ProductId))
+                        .ToDictionaryAsync(inventory => inventory.ProductId, inventory => inventory.CurrentStock);
+
+                    var shortages = requestedStock
+                        .Select(item => new
+                        {
+                            productId = item.ProductId,
+                            productName = products[item.ProductId].Name,
+                            requested = item.Quantity,
+                            available = Math.Max(0, availableStock.GetValueOrDefault(item.ProductId))
+                        })
+                        .Where(item => item.available < item.requested)
+                        .ToList();
+
+                    if (shortages.Count > 0)
+                    {
+                        return BadRequest(new
+                        {
+                            code = "INSUFFICIENT_STOCK",
+                            message = shortages.Count == 1
+                                ? $"No hay stock suficiente de '{shortages[0].productName}' (disponible: {shortages[0].available})."
+                                : "No hay stock suficiente para algunos productos del carrito.",
+                            items = shortages
+                        });
+                    }
+                }
+
                 // Calcular los ítems y totales
                 decimal grandTotal = 0m;
                 var orderDetailsToInsert = new List<OrderDetail>();

@@ -16,8 +16,8 @@ import { DashboardService } from './services/dashboard.service';
     <section class="space-y-4 p-4 md:p-6">
       <header class="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p class="text-xs font-bold uppercase tracking-wider text-indigo-600">INV-07</p>
-          <h2 class="text-2xl font-black text-slate-900">Dashboard de métricas e inventario</h2>
+          
+          <h2 class="text-2xl font-black text-slate-900">Reportes de métricas e inventario</h2>
           <p class="text-sm text-slate-500">Resumen operativo de <strong class="text-slate-700">{{ activeSectionName() }}</strong>.</p>
         </div>
       </header>
@@ -31,7 +31,7 @@ import { DashboardService } from './services/dashboard.service';
       }
 
       @if (summary(); as data) {
-        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
           <article class="rounded-2xl border border-slate-200 border-l-4 border-l-indigo-500 bg-white p-5 shadow-sm">
             <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Ventas de hoy</p>
             <p class="mt-2 text-3xl font-black text-slate-900">{{ data.todaySalesTotal | currency:'COP':'symbol':'1.0-0' }}</p>
@@ -76,23 +76,27 @@ import { DashboardService } from './services/dashboard.service';
             <p class="mt-2 text-3xl font-black text-slate-900">{{ data.todayOrdersCount }}</p>
             <p class="mt-1 text-xs text-slate-400">Ventas registradas hoy (sin anuladas).</p>
           </article>
-        </div>
 
-        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-
-          
-
-          <article class="rounded-2xl border border-slate-200 border-l-4 border-l-amber-500 bg-white p-5 shadow-sm">
-            <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Stock bajo</p>
-            <p class="mt-2 text-3xl font-black text-amber-600">{{ data.lowStockCount }}</p>
-            <p class="mt-1 text-xs text-slate-400">En o por debajo del mínimo.</p>
-          </article>
-
-          <article class="rounded-2xl border border-slate-200 border-l-4 border-l-red-500 bg-white p-5 shadow-sm">
-            <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Agotados</p>
-            <p class="mt-2 text-3xl font-black text-red-600">{{ data.outOfStockCount }}</p>
-            <p class="mt-1 text-xs text-slate-400">Existencia en cero.</p>
-          </article>
+          <!-- INV-06: stock bajo + agotados en una sola tarjeta; abre el inventario filtrado -->
+          <a
+            routerLink="/inventory"
+            [queryParams]="{ status: 'ALERT' }"
+            class="block rounded-2xl border border-slate-200 border-l-4 bg-white p-5 shadow-sm transition hover:shadow-md"
+            [ngClass]="data.outOfStockCount > 0 ? 'border-l-red-500 hover:border-red-300' : data.lowStockCount > 0 ? 'border-l-amber-500 hover:border-amber-300' : 'border-l-emerald-500 hover:border-emerald-300'"
+            title="Ver productos con stock bajo o agotados"
+          >
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Productos en alerta</p>
+            <p class="mt-2 text-3xl font-black" [ngClass]="data.outOfStockCount > 0 ? 'text-red-600' : data.lowStockCount > 0 ? 'text-amber-600' : 'text-slate-900'">{{ data.lowStockCount }}</p>
+            <p class="mt-1 text-xs text-slate-400">
+              @if (data.lowStockCount > 0) {
+                <span class="font-semibold text-red-600">{{ data.outOfStockCount }} {{ data.outOfStockCount === 1 ? 'agotado' : 'agotados' }}</span> ·
+                <span class="font-semibold text-amber-700">{{ data.lowStockCount - data.outOfStockCount }} con stock bajo</span> ·
+                <span class="font-semibold text-slate-600">Ver</span>
+              } @else {
+                Todo el inventario está sobre el mínimo.
+              }
+            </p>
+          </a>
         </div>
       }
 

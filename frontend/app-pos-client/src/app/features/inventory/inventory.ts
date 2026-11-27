@@ -1,9 +1,16 @@
 import { CommonModule } from '@angular/common';
-import { Component, effect, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Inventory as InventoryRecord, StockMovement } from '../../shared/models/pos.models';
 import { PosService } from '../pos/services/pos.service';
 import { AuthService } from '../../core/auth/auth.service';
+
+/** Estado del stock de un producto respecto a su mínimo. */
+type StockStatus = 'OUT' | 'LOW' | 'NORMAL';
+/** Filtro de la tabla: ALERT = stock bajo + agotados (lo que abre la tarjeta del dashboard). */
+type StockFilter = '' | 'ALERT' | StockStatus;
+const STOCK_FILTERS: StockFilter[] = ['', 'ALERT', 'OUT', 'LOW', 'NORMAL'];
 
 interface InventoryDraft {
   currentStock: number;
@@ -19,7 +26,7 @@ interface InventoryDraft {
     <section class="space-y-4 p-4 md:p-6">
       <header class="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p class="text-xs font-bold uppercase tracking-wider text-indigo-600">INV-06</p>
+          
           <h2 class="text-2xl font-black text-slate-900">Inventario y stock</h2>
           <p class="text-sm text-slate-500">Gestiona existencias y mínimos de la unidad activa.</p>
         </div>
@@ -32,10 +39,15 @@ interface InventoryDraft {
         <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ successMessage() }}</div>
       }
 
+      <div class="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-[minmax(0,1fr)_220px]">
+        <label class="text-xs font-bold uppercase text-slate-500">Buscar<input [ngModel]="search()" (ngModelChange)="search.set($event)" type="search" placeholder="Nombre, SKU o categoría" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal" /></label>
+        <label class="text-xs font-bold uppercase text-slate-500">Estado<select [ngModel]="statusFilter()" (ngModelChange)="statusFilter.set($event)" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-800"><option value="">Todos</option><option value="ALERT">En alerta (bajo + agotados)</option><option value="OUT">Agotados</option><option value="LOW">Stock bajo</option><option value="NORMAL">Normal</option></select></label>
+      </div>
+
       <div class="rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-            <span class="text-sm font-bold text-slate-700">{{ inventories().length }} productos con inventario</span>
+            <span class="text-sm font-bold text-slate-700">@if (filteredInventories().length === inventories().length) {{{ inventories().length }} productos con inventario} @else {{{ filteredInventories().length }} de {{ inventories().length }} productos con inventario}</span>
             <span class="text-xs font-semibold text-slate-400">Unidad: {{ inventories()[0]?.section?.name || 'Cargando...' }}</span>
           </div>
           <div class="overflow-x-auto">
@@ -44,18 +56,22 @@ interface InventoryDraft {
                 <tr><th class="px-4 py-3">SKU</th><th class="px-4 py-3">Nombre del producto</th><th class="px-4 py-3">Categoría</th><th class="px-4 py-3">Stock actual</th><th class="px-4 py-3">Stock mínimo</th><th class="px-4 py-3">Estado</th><th class="px-4 py-3 text-right">Acción</th></tr>
               </thead>
               <tbody class="divide-y divide-slate-100">
-                @for (item of inventories(); track item.inventoryId) {
-                  <tr [class.bg-amber-50]="item.currentStock <= item.minStock">
+                @for (item of filteredInventories(); track item.inventoryId) {
+                  <tr [class.bg-red-50]="stockStatus(item) === 'OUT'" [class.bg-amber-50]="stockStatus(item) === 'LOW'">
                     <td class="px-4 py-3 font-mono text-xs font-bold text-slate-600">{{ item.product.sku }}</td>
                     <td class="px-4 py-3 font-bold text-slate-800">{{ item.product.name }}</td>
                     <td class="px-4 py-3 text-slate-600">{{ item.product.category?.name || 'Sin categoría' }}</td>
                     <td class="px-4 py-3 font-bold text-slate-800">{{ item.currentStock }}</td>
                     <td class="px-4 py-3 text-slate-600">{{ item.minStock }}</td>
-                    <td class="px-4 py-3"><span class="rounded-full px-2 py-1 text-xs font-bold" [class.bg-red-100]="item.currentStock <= item.minStock" [class.text-red-700]="item.currentStock <= item.minStock" [class.bg-emerald-100]="item.currentStock > item.minStock" [class.text-emerald-700]="item.currentStock > item.minStock">{{ item.currentStock <= item.minStock ? 'Reponer' : 'Normal' }}</span></td>
+                    <td class="px-4 py-3">@switch (stockStatus(item)) {
+                      @case ('OUT') {<span class="rounded-full bg-red-100 px-2 py-1 text-xs font-bold text-red-700">Agotado</span>}
+                      @case ('LOW') {<span class="rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-700">Stock bajo</span>}
+                      @default {<span class="rounded-full bg-emerald-100 px-2 py-1 text-xs font-bold text-emerald-700">Normal</span>}
+                    }</td>
                     <td class="px-4 py-3 text-right"><button (click)="openDetails(item)" class="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-indigo-600">Ver Detalles</button></td>
                   </tr>
                 } @empty {
-                  <tr><td colspan="7" class="px-4 py-12 text-center text-sm text-slate-400">No hay inventarios para la unidad activa.</td></tr>
+                  <tr><td colspan="7" class="px-4 py-12 text-center text-sm text-slate-400">{{ inventories().length ? 'Ningún producto coincide con los filtros.' : 'No hay inventarios para la unidad activa.' }}</td></tr>
                 }
               </tbody>
             </table>
@@ -92,6 +108,34 @@ export class InventoryComponent {
   drafts: Record<number, InventoryDraft> = {};
   errorMessage = signal('');
   successMessage = signal('');
+
+  search = signal('');
+  // Permite abrir el inventario ya filtrado, p. ej. /inventory?status=ALERT desde el dashboard.
+  statusFilter = signal<StockFilter>(this.initialStatusFilter());
+
+  filteredInventories = computed(() => {
+    const query = this.search().trim().toLowerCase();
+    const filter = this.statusFilter();
+    return this.inventories().filter(item => {
+      const status = this.stockStatus(item);
+      const matchesStatus = !filter || (filter === 'ALERT' ? status !== 'NORMAL' : status === filter);
+      const matchesSearch = !query
+        || item.product.name.toLowerCase().includes(query)
+        || item.product.sku.toLowerCase().includes(query)
+        || (item.product.category?.name ?? '').toLowerCase().includes(query);
+      return matchesStatus && matchesSearch;
+    });
+  });
+
+  stockStatus(item: InventoryRecord): StockStatus {
+    if (item.currentStock <= 0) return 'OUT';
+    return item.currentStock <= item.minStock ? 'LOW' : 'NORMAL';
+  }
+
+  private initialStatusFilter(): StockFilter {
+    const status = (inject(ActivatedRoute).snapshot.queryParamMap.get('status') ?? '').toUpperCase() as StockFilter;
+    return STOCK_FILTERS.includes(status) ? status : '';
+  }
 
   private readonly sectionEffect = effect(() => {
     const sectionId = this.posService.selectedSectionId();

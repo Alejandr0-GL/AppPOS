@@ -182,7 +182,6 @@ export function buildReceiptLines(data: ReceiptData, paperWidth: EscPosPaperWidt
   push(columns('Orden:', `#${data.orderNumber}`, width));
   push(columns('Fecha:', formatDateTime(data.issuedAt), width));
   push(columns('Cajero:', data.cashier, width));
-  push(columns('Unidad:', data.sectionName, width));
   // INV-01: placa del vehículo (opcional).
   if (data.vehiclePlate) push(columns('Placa:', data.vehiclePlate, width), { bold: true });
   push(separator);
@@ -238,6 +237,7 @@ export function buildReceiptLines(data: ReceiptData, paperWidth: EscPosPaperWidt
   // Pie
   pushWrapped(data.thanksMessage, { bold: true, align: 'center' });
   pushWrapped(data.policyMessage, { align: 'center' });
+  if (data.legalNotice) pushWrapped(data.legalNotice, { bold: true, align: 'center' });
   push(`Impreso: ${formatDateTime(new Date())}`, { align: 'center' });
   push(truncate(data.company.name, width), { align: 'center' });
 

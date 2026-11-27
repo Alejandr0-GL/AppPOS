@@ -14,8 +14,8 @@ import { AuthService } from '../../core/auth/auth.service';
     <div class="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-10 font-sans">
       <div class="w-full max-w-sm">
         <div class="mb-6 flex items-center justify-center gap-2 text-2xl font-bold tracking-wider text-slate-900">
-          <span class="rounded-lg bg-indigo-600 p-2 text-sm text-white">POS</span>
-          <span>AppPOS</span>
+          <img src="neptuno-logo.png" alt="Neptuno POS" class="h-12 w-12 object-contain" />
+          <span class="text-[#0b2e59]">Neptuno <span class="text-cyan-500">POS</span></span>
         </div>
 
         <form (ngSubmit)="submit()" class="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">

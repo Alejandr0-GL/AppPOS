@@ -9,7 +9,7 @@ const receipt: ReceiptData = {
     phone: '+57 604 322 1188',
     email: 'ventas@apppos.local'
   },
-  documentTitle: 'Ticket POS / Factura de venta',
+  documentTitle: 'Comprobante de venta',
   orderNumber: 42,
   issuedAt: new Date('2026-10-30T10:15:00'),
   cashier: 'admin',
@@ -33,7 +33,7 @@ const receipt: ReceiptData = {
   changeAmount: 1000,
   status: 'COMPLETED',
   thanksMessage: '¡Gracias por su compra!',
-  policyMessage: 'Cambios y devoluciones dentro de los 30 días presentando este comprobante.'
+  policyMessage: ''
 };
 
 function contains(haystack: Uint8Array, needle: number[]): boolean {

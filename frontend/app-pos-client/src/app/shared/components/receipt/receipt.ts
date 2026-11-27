@@ -189,7 +189,6 @@ type ReceiptPaper = '58' | '80';
             <div class="flex justify-between gap-2"><span class="receipt-summary-label">Orden</span><span class="font-bold">#{{ data().orderNumber }}</span></div>
             <div class="flex justify-between gap-2"><span class="receipt-summary-label">Fecha</span><span>{{ data().issuedAt | date:'dd/MM/yyyy HH:mm' }}</span></div>
             <div class="flex justify-between gap-2"><span class="receipt-summary-label">Cajero</span><span class="text-right">{{ data().cashier }}</span></div>
-            <div class="flex justify-between gap-2"><span class="receipt-summary-label">Unidad</span><span class="text-right">{{ data().sectionName }}</span></div>
             @if (data().vehiclePlate) {
               <div class="flex justify-between gap-2"><span class="receipt-summary-label">Placa</span><span class="font-bold">{{ data().vehiclePlate }}</span></div>
             }
@@ -269,8 +268,11 @@ type ReceiptPaper = '58' | '80';
           <footer class="mt-2 border-t border-dashed border-black pt-2 text-center">
             <p class="font-bold">{{ data().thanksMessage }}</p>
             <p class="receipt-footnote mt-1 text-[10px] leading-snug">{{ data().policyMessage }}</p>
+            @if (data().legalNotice) {
+              <p class="mt-2 border-y border-dashed border-black py-1 text-[10px] font-bold leading-snug">{{ data().legalNotice }}</p>
+            }
             <p class="receipt-footnote mt-2 text-[10px]">Impreso: {{ printedAt() | date:'dd/MM/yyyy HH:mm' }}</p>
-            <p class="receipt-footnote text-[10px]">{{ data().company.name }} · AppPOS</p>
+            <p class="receipt-footnote text-[10px]">{{ data().company.name }}</p>
           </footer>
       </div><!-- /thermal-receipt -->
     </div>
